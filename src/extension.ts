@@ -31,6 +31,14 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						html: WebviewContent.getDetailedInfoHtml(info)
 					});
 				}
+			} else if (message.command === 'stopInstance') {
+				const result = await MultipassService.stopInstance(message.instanceName);
+				if (result.success) {
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' stopped successfully`);
+					await this.refresh();
+				} else {
+					vscode.window.showErrorMessage(`Failed to stop instance '${message.instanceName}': ${result.error}`);
+				}
 			}
 		});
 

@@ -84,6 +84,68 @@ export class WebviewContent {
 				});
 			}
 
+			function stopInstance(instanceName) {
+				vscode.postMessage({
+					command: 'stopInstance',
+					instanceName: instanceName
+				});
+			}
+
+			// Add context menu support
+			document.addEventListener('contextmenu', (e) => {
+				const instanceItem = e.target.closest('.instance-item');
+				if (instanceItem) {
+					e.preventDefault();
+					const instanceName = instanceItem.getAttribute('data-instance-name');
+					const instanceState = instanceItem.querySelector('.state').textContent.toLowerCase();
+
+					// Only show stop option for running instances
+					if (instanceState === 'running') {
+						showContextMenu(e.clientX, e.clientY, instanceName);
+					}
+				}
+			});
+
+			function showContextMenu(x, y, instanceName) {
+				// Remove existing context menu if any
+				const existingMenu = document.getElementById('context-menu');
+				if (existingMenu) {
+					existingMenu.remove();
+				}
+
+				const menu = document.createElement('div');
+				menu.id = 'context-menu';
+				menu.style.position = 'fixed';
+				menu.style.left = x + 'px';
+				menu.style.top = y + 'px';
+				menu.style.background = 'var(--vscode-menu-background)';
+				menu.style.border = '1px solid var(--vscode-menu-border)';
+				menu.style.borderRadius = '4px';
+				menu.style.padding = '4px 0';
+				menu.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+				menu.style.zIndex = '1000';
+				menu.style.minWidth = '150px';
+
+				const stopOption = document.createElement('div');
+				stopOption.className = 'context-menu-item';
+				stopOption.textContent = 'Stop Instance';
+				stopOption.onclick = () => {
+					stopInstance(instanceName);
+					menu.remove();
+				};
+
+				menu.appendChild(stopOption);
+				document.body.appendChild(menu);
+
+				// Close menu when clicking outside
+				setTimeout(() => {
+					document.addEventListener('click', function closeMenu() {
+						menu.remove();
+						document.removeEventListener('click', closeMenu);
+					});
+				}, 0);
+			}
+
 			// Listen for messages from the extension
 			window.addEventListener('message', event => {
 				const message = event.data;
@@ -239,6 +301,16 @@ export class WebviewContent {
 				color: var(--vscode-descriptionForeground);
 				font-size: 11px;
 				padding: 8px;
+			}
+			.context-menu-item {
+				padding: 6px 12px;
+				cursor: pointer;
+				color: var(--vscode-menu-foreground);
+				font-size: 13px;
+			}
+			.context-menu-item:hover {
+				background: var(--vscode-menu-selectionBackground);
+				color: var(--vscode-menu-selectionForeground);
 			}
 		`;
 	}
