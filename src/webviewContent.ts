@@ -103,39 +103,36 @@ export class WebviewContent {
 				});
 			}
 
-			function startInstance(instanceName) {
-				// Add starting state
-				startingInstances.add(instanceName);
-				const instanceItem = document.querySelector('[data-instance-name="' + instanceName + '"]');
-				if (instanceItem) {
-					const stateElement = instanceItem.querySelector('.state');
-					if (stateElement) {
-						stateElement.textContent = 'Starting';
-						stateElement.className = 'state state-starting';
-					}
-
-					// Add spinner
-					const header = instanceItem.querySelector('.instance-header');
-					if (header && !header.querySelector('.spinner')) {
-						const spinner = document.createElement('div');
-						spinner.className = 'spinner';
-						header.appendChild(spinner);
-					}
+		function startInstance(instanceName) {
+			// Add starting state
+			startingInstances.add(instanceName);
+			const instanceItem = document.querySelector('[data-instance-name="' + instanceName + '"]');
+			if (instanceItem) {
+				const stateElement = instanceItem.querySelector('.state');
+				if (stateElement) {
+					stateElement.textContent = 'Starting';
+					stateElement.className = 'state state-starting';
 				}
-
-				vscode.postMessage({
-					command: 'startInstance',
-					instanceName: instanceName
-				});
 			}
 
-			function createNewInstance() {
-				vscode.postMessage({
-					command: 'launchInstance'
-				});
-			}
+			vscode.postMessage({
+				command: 'startInstance',
+				instanceName: instanceName
+			});
+		}			function createNewInstance() {
+			vscode.postMessage({
+				command: 'launchInstance'
+			});
+		}
 
-			// Add context menu support
+		function deleteInstance(instanceName) {
+			vscode.postMessage({
+				command: 'deleteInstance',
+				instanceName: instanceName
+			});
+		}
+
+		// Add context menu support
 			document.addEventListener('contextmenu', (e) => {
 				const instanceItem = e.target.closest('.instance-item');
 				if (instanceItem) {
@@ -168,30 +165,46 @@ export class WebviewContent {
 				menu.style.zIndex = '1000';
 				menu.style.minWidth = '150px';
 
-				// Add appropriate menu option based on instance state
-				if (instanceState === 'running') {
-					const stopOption = document.createElement('div');
-					stopOption.className = 'context-menu-item';
-					stopOption.textContent = 'Stop Instance';
-					stopOption.onclick = () => {
-						stopInstance(instanceName);
-						menu.remove();
-					};
-					menu.appendChild(stopOption);
-				} else if (instanceState === 'stopped') {
-					const startOption = document.createElement('div');
-					startOption.className = 'context-menu-item';
-					startOption.textContent = 'Start Instance';
-					startOption.onclick = () => {
-						startInstance(instanceName);
-						menu.remove();
-					};
-					menu.appendChild(startOption);
-				}
+			// Add appropriate menu option based on instance state
+			if (instanceState === 'running') {
+				const stopOption = document.createElement('div');
+				stopOption.className = 'context-menu-item';
+				stopOption.textContent = 'Stop Instance';
+				stopOption.onclick = () => {
+					stopInstance(instanceName);
+					menu.remove();
+				};
+				menu.appendChild(stopOption);
+			} else if (instanceState === 'stopped') {
+				const startOption = document.createElement('div');
+				startOption.className = 'context-menu-item';
+				startOption.textContent = 'Start Instance';
+				startOption.onclick = () => {
+					startInstance(instanceName);
+					menu.remove();
+				};
+				menu.appendChild(startOption);
 
-				document.body.appendChild(menu);
+				// Add separator
+				const separator = document.createElement('div');
+				separator.style.height = '1px';
+				separator.style.background = 'var(--vscode-menu-separatorBackground)';
+				separator.style.margin = '4px 0';
+				menu.appendChild(separator);
 
-				// Close menu when clicking outside
+				// Add delete option
+				const deleteOption = document.createElement('div');
+				deleteOption.className = 'context-menu-item';
+				deleteOption.textContent = 'Delete Instance';
+				deleteOption.style.color = 'var(--vscode-errorForeground)';
+				deleteOption.onclick = () => {
+					deleteInstance(instanceName);
+					menu.remove();
+				};
+				menu.appendChild(deleteOption);
+			}
+
+			document.body.appendChild(menu);				// Close menu when clicking outside
 				setTimeout(() => {
 					document.addEventListener('click', function closeMenu() {
 						menu.remove();
@@ -259,6 +272,11 @@ export class WebviewContent {
 				font-weight: 600;
 				color: var(--vscode-editor-foreground);
 				font-size: 13px;
+			}
+			.state-container {
+				display: flex;
+				align-items: center;
+				gap: 8px;
 			}
 			.state {
 				padding: 2px 8px;
@@ -426,6 +444,35 @@ export class WebviewContent {
 			.context-menu-item:hover {
 				background: var(--vscode-menu-selectionBackground);
 				color: var(--vscode-menu-selectionForeground);
+			}
+			.detail-separator {
+				height: 1px;
+				background: var(--vscode-panel-border);
+				margin: 12px 0;
+			}
+			.delete-button {
+				width: 100%;
+				background: transparent;
+				color: var(--vscode-errorForeground);
+				border: 1px solid var(--vscode-errorForeground);
+				padding: 8px 16px;
+				border-radius: 2px;
+				cursor: pointer;
+				font-size: 12px;
+				font-family: var(--vscode-font-family);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				transition: all 0.1s ease;
+				margin-top: 8px;
+			}
+			.delete-button:hover {
+				background: var(--vscode-errorForeground);
+				color: #ffffff;
+			}
+			.delete-button:active {
+				transform: translateY(1px);
 			}
 		`;
 	}

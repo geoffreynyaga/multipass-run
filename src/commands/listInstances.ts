@@ -35,12 +35,14 @@ export async function getInstances(): Promise<MultipassInstance[]> {
 		const data = JSON.parse(stdout);
 
 		if (data.list && Array.isArray(data.list)) {
-			return data.list.map((instance: any) => ({
-				name: instance.name || 'Unknown',
-				state: instance.state || 'Unknown',
-				ipv4: instance.ipv4?.[0] || '',
-				release: instance.release || 'N/A'
-			}));
+			return data.list
+				.filter((instance: any) => instance.state?.toLowerCase() !== 'deleted')
+				.map((instance: any) => ({
+					name: instance.name || 'Unknown',
+					state: instance.state || 'Unknown',
+					ipv4: instance.ipv4?.[0] || '',
+					release: instance.release || 'N/A'
+				}));
 		}
 		return [];
 	} catch (error) {

@@ -31,6 +31,10 @@ export class InstanceInfoView {
 				<span class="detail-label">Mounts:</span>
 				<span class="detail-value">${info.mounts}</span>
 			</div>
+			<div class="detail-separator"></div>
+			<button class="delete-button" onclick="deleteInstance('${info.name}')">
+				 Delete Instance
+			</button>
 		`;
 	}
 }

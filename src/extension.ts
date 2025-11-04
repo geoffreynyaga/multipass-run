@@ -59,6 +59,30 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				}
 			} else if (message.command === 'launchInstance') {
 				await this.createDefaultInstance();
+			} else if (message.command === 'deleteInstance') {
+				// Show confirmation dialog
+				const confirm = await vscode.window.showWarningMessage(
+					`Are you sure you want to delete instance '${message.instanceName}'?`,
+					{ modal: true },
+					'Delete',
+					'Delete & Purge'
+				);
+
+				if (confirm === 'Delete' || confirm === 'Delete & Purge') {
+					const purge = confirm === 'Delete & Purge';
+					const result = await MultipassService.deleteInstance(message.instanceName, purge);
+
+					if (result.success) {
+						vscode.window.showInformationMessage(
+							purge
+								? `Instance '${message.instanceName}' deleted and purged`
+								: `Instance '${message.instanceName}' deleted`
+						);
+						await this.refresh();
+					} else {
+						vscode.window.showErrorMessage(`Failed to delete instance '${message.instanceName}': ${result.error}`);
+					}
+				}
 			}
 		});
 
@@ -80,6 +104,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 30): Promise<void> {
+		// Refresh immediately to show the new instance
+		await this.refresh();
+		
 		let attempts = 0;
 		const pollInterval = setInterval(async () => {
 			attempts++;
@@ -89,6 +116,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			if (instance && instance.state.toLowerCase() === 'running') {
 				clearInterval(pollInterval);
 				vscode.window.showInformationMessage(`Instance '${instanceName}' is now running`);
+				await this.refresh();
+			} else if (instance) {
+				// Instance exists but not running yet - refresh to show current state
 				await this.refresh();
 			} else if (attempts >= maxAttempts) {
 				clearInterval(pollInterval);

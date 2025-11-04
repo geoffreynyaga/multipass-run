@@ -24,18 +24,20 @@ export class InstanceListView {
 			// Use dark icon for stopped instances, regular icon for running instances
 			const iconUri = isRunning ? ubuntuIconUri : ubuntuDarkIconUri;
 
-			return `
-			<li class="instance-item ${cursorClass}" data-instance-name="${instance.name}" ${clickHandler}>
-				<div class="instance-header">
-					<div class="instance-name">${instance.name}</div>
+		return `
+		<li class="instance-item ${cursorClass}" data-instance-name="${instance.name}" ${clickHandler}>
+			<div class="instance-header">
+				<div class="instance-name">${instance.name}</div>
+				<div class="state-container">
 					<span class="state state-${instance.state.toLowerCase()}">${instance.state}</span>
 				</div>
-				<div class="instance-footer">
-					<div class="instance-release">
-						<img src="${iconUri}" class="ubuntu-icon" alt="Ubuntu" />
-						<span class="version-text">${releaseText}</span>
-					</div>
-					<span class="ip">${instance.ipv4}</span>
+			</div>
+			<div class="instance-footer">
+				<div class="instance-release">
+					<img src="${iconUri}" class="ubuntu-icon" alt="Ubuntu" />
+					<span class="version-text">${releaseText}</span>
+				</div>
+				<span class="ip">${instance.ipv4}</span>
 					${isRunning ? `
 					<div class="chevron-container" id="chevron-${instance.name}">
 						<svg class="chevron-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">

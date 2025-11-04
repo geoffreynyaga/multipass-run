@@ -6,6 +6,7 @@ import { getInstances as getInstancesCommand } from './commands/listInstances';
 import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
+import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
 
 // Re-export types and functions
 export type { MultipassInstance } from './commands/listInstances';
@@ -19,6 +20,7 @@ export { startInstance } from './commands/startInstance';
 export { launchInstance } from './commands/launch/launchInstance';
 export { createDefaultInstance } from './commands/launch/createDefaultInstance';
 export { createDetailedInstance } from './commands/launch/createDetailedInstance';
+export { deleteInstance } from './commands/deleteInstance';
 
 // Maintain backward compatibility with class-based API
 export class MultipassService {
@@ -29,4 +31,5 @@ export class MultipassService {
 	public static launchInstance = launchInstanceCommand;
 	public static createDefaultInstance = createDefaultInstanceCommand;
 	public static createDetailedInstance = createDetailedInstanceCommand;
+	public static deleteInstance = deleteInstanceCommand;
 }
