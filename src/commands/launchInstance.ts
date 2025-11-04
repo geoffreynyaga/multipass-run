@@ -4,15 +4,44 @@ import { MULTIPASS_PATHS } from './constants';
 
 const execAsync = promisify(exec);
 
-export async function launchInstance(name?: string): Promise<{ success: boolean; error?: string; instanceName?: string }> {
+export interface LaunchInstanceOptions {
+	name?: string;
+	cpus?: string;
+	memory?: string;
+	disk?: string;
+}
+
+export async function launchInstance(
+	nameOrOptions?: string | LaunchInstanceOptions
+): Promise<{ success: boolean; error?: string; instanceName?: string }> {
 	try {
 		let lastError: any = null;
-		const instanceName = name || `instance-${Date.now()}`;
+		
+		// Handle both string (backward compatibility) and options object
+		let options: LaunchInstanceOptions;
+		if (typeof nameOrOptions === 'string') {
+			options = { name: nameOrOptions };
+		} else {
+			options = nameOrOptions || {};
+		}
+		
+		const instanceName = options.name || `instance-${Date.now()}`;
+		
+		// Build command with optional parameters
+		let command = `launch --name ${instanceName}`;
+		if (options.cpus) {
+			command += ` --cpus ${options.cpus}`;
+		}
+		if (options.memory) {
+			command += ` --memory ${options.memory}`;
+		}
+		if (options.disk) {
+			command += ` --disk ${options.disk}`;
+		}
 
 		for (const multipassPath of MULTIPASS_PATHS) {
 			try {
-				// Launch with default Ubuntu LTS, can be customized
-				await execAsync(`${multipassPath} launch --name ${instanceName}`);
+				await execAsync(`${multipassPath} ${command}`);
 				return { success: true, instanceName };
 			} catch (err) {
 				lastError = err;

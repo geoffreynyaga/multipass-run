@@ -21,6 +21,11 @@
         "command": "multipass-run.refresh",
         "title": "Refresh Multipass Instances",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "multipass-run.createInstanceMenu",
+        "title": "Create Instance",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -46,6 +51,11 @@
       "view/title": [
         {
           "command": "multipass-run.refresh",
+          "when": "view == multipass-run-view",
+          "group": "navigation"
+        },
+        {
+          "command": "multipass-run.createInstanceMenu",
           "when": "view == multipass-run-view",
           "group": "navigation"
         }
