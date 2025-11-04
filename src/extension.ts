@@ -57,45 +57,52 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					await this.refresh();
 				}
 			} else if (message.command === 'launchInstance') {
-				// Prompt user for instance name
-				const instanceName = await vscode.window.showInputBox({
-					prompt: 'Enter a name for the new instance',
-					placeHolder: 'my-instance',
-					validateInput: (value) => {
-						if (!value || value.trim() === '') {
-							return 'Instance name cannot be empty';
-						}
-						if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
-							return 'Instance name can only contain letters, numbers, hyphens, and underscores';
-						}
-						return null;
-					}
-				});
-
-				if (instanceName) {
-					// Close the input and show progress
-					vscode.window.withProgress({
-						location: vscode.ProgressLocation.Notification,
-						title: `Creating instance '${instanceName}'`,
-						cancellable: false
-					}, async (progress) => {
-						progress.report({ increment: 0, message: 'Launching...' });
-
-						const result = await MultipassService.launchInstance(instanceName);
-						if (result.success) {
-							progress.report({ increment: 50, message: 'Instance created, waiting for it to start...' });
-							// Start polling for the new instance
-							await this.pollInstanceStatusWithProgress(instanceName, progress, 60);
-						} else {
-							vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
-						}
-						return Promise.resolve();
-					});
-				}
+				await this.createDefaultInstance();
 			}
 		});
 
 		await this.refresh();
+	}
+
+	public async createDefaultInstance(): Promise<void> {
+		// Prompt user for instance name
+		const instanceName = await vscode.window.showInputBox({
+			prompt: 'Enter a name for the new instance',
+			placeHolder: 'my-instance',
+			validateInput: (value) => {
+				if (!value || value.trim() === '') {
+					return 'Instance name cannot be empty';
+				}
+				if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
+					return 'Instance name can only contain letters, numbers, hyphens, and underscores';
+				}
+				return null;
+			}
+		});
+
+		if (instanceName) {
+			// Close the input and show progress
+			vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: `Creating instance '${instanceName}'`,
+					cancellable: false
+				},
+				async (progress) => {
+					progress.report({ increment: 0, message: 'Launching...' });
+
+					const result = await MultipassService.launchInstance(instanceName);
+					if (result.success) {
+						progress.report({ increment: 50, message: 'Instance created, waiting for it to start...' });
+						// Start polling for the new instance
+						await this.pollInstanceStatusWithProgress(instanceName, progress, 60);
+					} else {
+						vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
+					}
+					return Promise.resolve();
+				}
+			);
+		}
 	}
 
 	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 30): Promise<void> {
@@ -182,6 +189,56 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('multipass-run.refresh', () => {
 			provider.refresh();
+		})
+	);
+
+	// Register create instance menu command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.createInstanceMenu', async () => {
+			const options = [
+				{
+					label: '$(add) Create Instance',
+					description: 'Create a new instance with default settings',
+					id: 'create-default'
+				},
+				{
+					label: '$(file) Create from Profile',
+					description: 'Create instance using a saved profile',
+					id: 'create-profile'
+				},
+				{
+					label: '$(settings-gear) Create Detailed',
+					description: 'Create instance with custom configuration',
+					id: 'create-detailed'
+				},
+				{
+					label: '$(file-code) Create from YAML',
+					description: 'Create instance from a YAML configuration file',
+					id: 'create-yaml'
+				}
+			];
+
+			const selected = await vscode.window.showQuickPick(options, {
+				placeHolder: 'Select instance creation method',
+				title: 'Create Multipass Instance'
+			});
+
+			if (selected) {
+				switch (selected.id) {
+					case 'create-default':
+						await provider.createDefaultInstance();
+						break;
+					case 'create-profile':
+						vscode.window.showInformationMessage('Create from Profile - Coming soon!');
+						break;
+					case 'create-detailed':
+						vscode.window.showInformationMessage('Create Detailed Instance - Coming soon!');
+						break;
+					case 'create-yaml':
+						vscode.window.showInformationMessage('Create from YAML - Coming soon!');
+						break;
+				}
+			}
 		})
 	);
 
