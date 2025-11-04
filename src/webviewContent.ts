@@ -21,7 +21,6 @@ export class WebviewContent {
 		</head>
 		<body>
 			<div>
-				<h2>Multipass Instances</h2>
 				<ul id="instances-list">
 					${instancesHtml}
 				</ul>
@@ -41,6 +40,7 @@ export class WebviewContent {
 		return `
 			const vscode = acquireVsCodeApi();
 			let expandedInstance = null;
+			let startingInstances = new Set(); // Track instances that are starting
 
 			function handleInstanceClick(instanceName) {
 				const detailsDiv = document.getElementById('details-' + instanceName);
@@ -85,8 +85,44 @@ export class WebviewContent {
 			}
 
 			function stopInstance(instanceName) {
+				// Add stopping state
+				const instanceItem = document.querySelector('[data-instance-name="' + instanceName + '"]');
+				if (instanceItem) {
+					const stateElement = instanceItem.querySelector('.state');
+					if (stateElement) {
+						stateElement.textContent = 'Stopping';
+						stateElement.className = 'state state-stopping';
+					}
+				}
+
 				vscode.postMessage({
 					command: 'stopInstance',
+					instanceName: instanceName
+				});
+			}
+
+			function startInstance(instanceName) {
+				// Add starting state
+				startingInstances.add(instanceName);
+				const instanceItem = document.querySelector('[data-instance-name="' + instanceName + '"]');
+				if (instanceItem) {
+					const stateElement = instanceItem.querySelector('.state');
+					if (stateElement) {
+						stateElement.textContent = 'Starting';
+						stateElement.className = 'state state-starting';
+					}
+
+					// Add spinner
+					const header = instanceItem.querySelector('.instance-header');
+					if (header && !header.querySelector('.spinner')) {
+						const spinner = document.createElement('div');
+						spinner.className = 'spinner';
+						header.appendChild(spinner);
+					}
+				}
+
+				vscode.postMessage({
+					command: 'startInstance',
 					instanceName: instanceName
 				});
 			}
@@ -99,14 +135,12 @@ export class WebviewContent {
 					const instanceName = instanceItem.getAttribute('data-instance-name');
 					const instanceState = instanceItem.querySelector('.state').textContent.toLowerCase();
 
-					// Only show stop option for running instances
-					if (instanceState === 'running') {
-						showContextMenu(e.clientX, e.clientY, instanceName);
-					}
+					// Show context menu with appropriate options based on state
+					showContextMenu(e.clientX, e.clientY, instanceName, instanceState);
 				}
 			});
 
-			function showContextMenu(x, y, instanceName) {
+			function showContextMenu(x, y, instanceName, instanceState) {
 				// Remove existing context menu if any
 				const existingMenu = document.getElementById('context-menu');
 				if (existingMenu) {
@@ -126,15 +160,27 @@ export class WebviewContent {
 				menu.style.zIndex = '1000';
 				menu.style.minWidth = '150px';
 
-				const stopOption = document.createElement('div');
-				stopOption.className = 'context-menu-item';
-				stopOption.textContent = 'Stop Instance';
-				stopOption.onclick = () => {
-					stopInstance(instanceName);
-					menu.remove();
-				};
+				// Add appropriate menu option based on instance state
+				if (instanceState === 'running') {
+					const stopOption = document.createElement('div');
+					stopOption.className = 'context-menu-item';
+					stopOption.textContent = 'Stop Instance';
+					stopOption.onclick = () => {
+						stopInstance(instanceName);
+						menu.remove();
+					};
+					menu.appendChild(stopOption);
+				} else if (instanceState === 'stopped') {
+					const startOption = document.createElement('div');
+					startOption.className = 'context-menu-item';
+					startOption.textContent = 'Start Instance';
+					startOption.onclick = () => {
+						startInstance(instanceName);
+						menu.remove();
+					};
+					menu.appendChild(startOption);
+				}
 
-				menu.appendChild(stopOption);
 				document.body.appendChild(menu);
 
 				// Close menu when clicking outside
@@ -219,8 +265,36 @@ export class WebviewContent {
 				color: white;
 			}
 			.state-stopped {
-				background: #f44336;
+				background: #5a5a5a;
 				color: white;
+			}
+			.state-starting,
+			.state-stopping {
+				background: #ff9800;
+				color: white;
+				animation: pulse 1.5s ease-in-out infinite;
+			}
+			@keyframes pulse {
+				0%, 100% {
+					opacity: 1;
+				}
+				50% {
+					opacity: 0.6;
+				}
+			}
+			.spinner {
+				width: 14px;
+				height: 14px;
+				border: 2px solid var(--vscode-descriptionForeground);
+				border-top-color: transparent;
+				border-radius: 50%;
+				animation: spin 1s linear infinite;
+				margin-left: 8px;
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
 			}
 			.instance-footer {
 				display: flex;
@@ -240,15 +314,15 @@ export class WebviewContent {
 				flex: 1;
 				display: flex;
 				align-items: center;
-				gap: 6px;
+				gap: 4px;
 			}
 			.ubuntu-icon {
-				width: 16px;
-				height: 16px;
+				width: 12px;
+				height: 12px;
 				flex-shrink: 0;
 			}
 			.version-text {
-				font-size: 12px;
+				font-size: 10px;
 			}
 			.chevron-container {
 				display: flex;

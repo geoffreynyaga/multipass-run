@@ -34,15 +34,50 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			} else if (message.command === 'stopInstance') {
 				const result = await MultipassService.stopInstance(message.instanceName);
 				if (result.success) {
-					vscode.window.showInformationMessage(`Instance '${message.instanceName}' stopped successfully`);
-					await this.refresh();
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is stopping...`);
+					// Refresh after a short delay to show stopped state
+					setTimeout(async () => {
+						await this.refresh();
+						vscode.window.showInformationMessage(`Instance '${message.instanceName}' stopped`);
+					}, 2000);
 				} else {
 					vscode.window.showErrorMessage(`Failed to stop instance '${message.instanceName}': ${result.error}`);
+					await this.refresh();
+				}
+			} else if (message.command === 'startInstance') {
+				const result = await MultipassService.startInstance(message.instanceName);
+				if (result.success) {
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is starting...`);
+					// Start polling for status updates
+					this.pollInstanceStatus(message.instanceName);
+				} else {
+					vscode.window.showErrorMessage(`Failed to start instance '${message.instanceName}': ${result.error}`);
+					// Refresh to clear the starting state
+					await this.refresh();
 				}
 			}
 		});
 
 		await this.refresh();
+	}
+
+	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 30): Promise<void> {
+		let attempts = 0;
+		const pollInterval = setInterval(async () => {
+			attempts++;
+			const instances = await MultipassService.getInstances();
+			const instance = instances.find(i => i.name === instanceName);
+
+			if (instance && instance.state.toLowerCase() === 'running') {
+				clearInterval(pollInterval);
+				vscode.window.showInformationMessage(`Instance '${instanceName}' is now running`);
+				await this.refresh();
+			} else if (attempts >= maxAttempts) {
+				clearInterval(pollInterval);
+				vscode.window.showWarningMessage(`Instance '${instanceName}' is taking longer than expected to start`);
+				await this.refresh();
+			}
+		}, 2000); // Poll every 2 seconds
 	}
 
 	public async refresh(): Promise<void> {
