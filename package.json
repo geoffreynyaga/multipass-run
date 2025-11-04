@@ -17,7 +17,26 @@
         "command": "multipass-run.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "multipass-run-sidebar",
+          "title": "Multipass Run",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "multipass-run-sidebar": [
+        {
+          "id": "multipass-run-view",
+          "name": "Hello There",
+          "type": "webview",
+          "icon": "$(rocket)"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
