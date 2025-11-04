@@ -1,6 +1,6 @@
+import { MULTIPASS_PATHS } from '../constants';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { MULTIPASS_PATHS } from './constants';
 
 const execAsync = promisify(exec);
 
@@ -16,7 +16,7 @@ export async function launchInstance(
 ): Promise<{ success: boolean; error?: string; instanceName?: string }> {
 	try {
 		let lastError: any = null;
-		
+
 		// Handle both string (backward compatibility) and options object
 		let options: LaunchInstanceOptions;
 		if (typeof nameOrOptions === 'string') {
@@ -24,9 +24,9 @@ export async function launchInstance(
 		} else {
 			options = nameOrOptions || {};
 		}
-		
+
 		const instanceName = options.name || `instance-${Date.now()}`;
-		
+
 		// Build command with optional parameters
 		let command = `launch --name ${instanceName}`;
 		if (options.cpus) {
