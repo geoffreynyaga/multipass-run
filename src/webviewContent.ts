@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
+
 import { MultipassInstance, MultipassInstanceInfo } from './multipassService';
-import { InstanceListView } from './views/instanceListView';
+
 import { InstanceInfoView } from './views/instanceInfoView';
+import { InstanceListView } from './views/instanceListView';
 
 export class WebviewContent {
 	public static getHtml(instances: MultipassInstance[], webview: vscode.Webview, extensionUri: vscode.Uri): string {
@@ -124,6 +126,12 @@ export class WebviewContent {
 				vscode.postMessage({
 					command: 'startInstance',
 					instanceName: instanceName
+				});
+			}
+
+			function createNewInstance() {
+				vscode.postMessage({
+					command: 'launchInstance'
 				});
 			}
 
@@ -343,6 +351,39 @@ export class WebviewContent {
 				padding: 20px;
 				text-align: center;
 				color: var(--vscode-descriptionForeground);
+			}
+			.no-instances p {
+				margin-bottom: 20px;
+				font-size: 14px;
+			}
+			.create-instance-btn {
+				background: #0e639c;
+				color: #ffffff;
+				border: 1px solid #1177bb;
+				padding: 10px 20px;
+				border-radius: 2px;
+				cursor: pointer;
+				font-size: 13px;
+				font-family: var(--vscode-font-family);
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				transition: all 0.1s ease;
+				box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+			}
+			.create-instance-btn:hover {
+				background: #1177bb;
+				border-color: #1890d5;
+			}
+			.create-instance-btn:active {
+				background: #0d5a8f;
+				transform: translateY(1px);
+				box-shadow: none;
+			}
+			.btn-icon {
+				font-size: 16px;
+				font-weight: bold;
+				line-height: 1;
 			}
 			code {
 				background: var(--vscode-textCodeBlock-background);

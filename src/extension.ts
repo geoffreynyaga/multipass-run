@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+
 import { MultipassService } from './multipassService';
 import { WebviewContent } from './webviewContent';
 
@@ -55,6 +56,42 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					// Refresh to clear the starting state
 					await this.refresh();
 				}
+			} else if (message.command === 'launchInstance') {
+				// Prompt user for instance name
+				const instanceName = await vscode.window.showInputBox({
+					prompt: 'Enter a name for the new instance',
+					placeHolder: 'my-instance',
+					validateInput: (value) => {
+						if (!value || value.trim() === '') {
+							return 'Instance name cannot be empty';
+						}
+						if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
+							return 'Instance name can only contain letters, numbers, hyphens, and underscores';
+						}
+						return null;
+					}
+				});
+
+				if (instanceName) {
+					// Close the input and show progress
+					vscode.window.withProgress({
+						location: vscode.ProgressLocation.Notification,
+						title: `Creating instance '${instanceName}'`,
+						cancellable: false
+					}, async (progress) => {
+						progress.report({ increment: 0, message: 'Launching...' });
+
+						const result = await MultipassService.launchInstance(instanceName);
+						if (result.success) {
+							progress.report({ increment: 50, message: 'Instance created, waiting for it to start...' });
+							// Start polling for the new instance
+							await this.pollInstanceStatusWithProgress(instanceName, progress, 60);
+						} else {
+							vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
+						}
+						return Promise.resolve();
+					});
+				}
 			}
 		});
 
@@ -78,6 +115,43 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				await this.refresh();
 			}
 		}, 2000); // Poll every 2 seconds
+	}
+
+	private async pollInstanceStatusWithProgress(
+		instanceName: string,
+		progress: vscode.Progress<{ message?: string; increment?: number }>,
+		maxAttempts: number = 60
+	): Promise<void> {
+		let attempts = 0;
+
+		return new Promise((resolve) => {
+			const pollInterval = setInterval(async () => {
+				attempts++;
+				const instances = await MultipassService.getInstances();
+				const instance = instances.find(i => i.name === instanceName);
+
+				if (instance && instance.state.toLowerCase() === 'running') {
+					clearInterval(pollInterval);
+					progress.report({ increment: 100, message: 'Instance is running!' });
+					vscode.window.showInformationMessage(`Instance '${instanceName}' is now running`);
+					await this.refresh();
+					resolve();
+				} else if (instance) {
+					// Instance exists but not running yet
+					const progressPercent = Math.min((attempts / maxAttempts) * 50, 50);
+					progress.report({
+						increment: progressPercent / attempts,
+						message: `Starting (${attempts}/${maxAttempts})...`
+					});
+				} else if (attempts >= maxAttempts) {
+					clearInterval(pollInterval);
+					progress.report({ increment: 100, message: 'Timed out' });
+					vscode.window.showWarningMessage(`Instance '${instanceName}' is taking longer than expected to start`);
+					await this.refresh();
+					resolve();
+				}
+			}, 2000); // Poll every 2 seconds
+		});
 	}
 
 	public async refresh(): Promise<void> {

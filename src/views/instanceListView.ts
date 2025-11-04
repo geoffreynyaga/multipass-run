@@ -3,7 +3,14 @@ import { MultipassInstance } from '../multipassService';
 export class InstanceListView {
 	public static generateHtml(instances: MultipassInstance[], ubuntuIconUri: string, ubuntuDarkIconUri: string): string {
 		if (instances.length === 0) {
-			return '<li class="no-instances">No instances found. Run <code>multipass launch</code> to create one.</li>';
+			return `
+				<div class="no-instances">
+					<p>No instances found.</p>
+					<button class="create-instance-btn" onclick="createNewInstance()">
+						Create New Instance
+					</button>
+				</div>
+			`;
 		}
 
 		return instances.map(instance => {
