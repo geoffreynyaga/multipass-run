@@ -16,6 +16,11 @@
       {
         "command": "multipass-run.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "multipass-run.refresh",
+        "title": "Refresh Multipass Instances",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -31,9 +36,18 @@
       "multipass-run-sidebar": [
         {
           "id": "multipass-run-view",
-          "name": "Hello There",
+          "name": "Instances",
           "type": "webview",
           "icon": "$(rocket)"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "multipass-run.refresh",
+          "when": "view == multipass-run-view",
+          "group": "navigation"
         }
       ]
     }

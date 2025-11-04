@@ -15,6 +15,20 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			enableScripts: true
 		};
 
+		// Handle messages from the webview
+		webviewView.webview.onDidReceiveMessage(async (message) => {
+			if (message.command === 'getInstanceInfo') {
+				const info = await MultipassService.getInstanceInfo(message.instanceName);
+				if (info && this._view) {
+					this._view.webview.postMessage({
+						command: 'updateInstanceInfo',
+						instanceName: message.instanceName,
+						html: WebviewContent.getDetailedInfoHtml(info)
+					});
+				}
+			}
+		});
+
 		await this.refresh();
 	}
 
@@ -40,6 +54,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const provider = new MultipassViewProvider();
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
+	);
+
+	// Register refresh command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.refresh', () => {
+			provider.refresh();
+		})
 	);
 
 	// The command has been defined in the package.json file
