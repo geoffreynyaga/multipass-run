@@ -8,11 +8,16 @@ import { WebviewContent } from './webviewContent';
 class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 
+	constructor(private readonly _extensionUri: vscode.Uri) {}
+
 	public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
 		this._view = webviewView;
 
 		webviewView.webview.options = {
-			enableScripts: true
+			enableScripts: true,
+			localResourceRoots: [
+				vscode.Uri.joinPath(this._extensionUri, 'media')
+			]
 		};
 
 		// Handle messages from the webview
@@ -38,7 +43,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		const instances = await MultipassService.getInstances();
-		this._view.webview.html = WebviewContent.getHtml(instances);
+		this._view.webview.html = WebviewContent.getHtml(instances, this._view.webview, this._extensionUri);
 	}
 }
 
@@ -51,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "multipass-run" is now active!');
 
 	// Register the webview view provider
-	const provider = new MultipassViewProvider();
+	const provider = new MultipassViewProvider(context.extensionUri);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
 	);

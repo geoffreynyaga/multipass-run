@@ -1,7 +1,7 @@
 import { MultipassInstance } from '../multipassService';
 
 export class InstanceListView {
-	public static generateHtml(instances: MultipassInstance[]): string {
+	public static generateHtml(instances: MultipassInstance[], ubuntuIconUri: string, ubuntuDarkIconUri: string): string {
 		if (instances.length === 0) {
 			return '<li class="no-instances">No instances found. Run <code>multipass launch</code> to create one.</li>';
 		}
@@ -11,6 +11,12 @@ export class InstanceListView {
 			const clickHandler = isRunning ? `onclick="handleInstanceClick('${instance.name}')"` : '';
 			const cursorClass = isRunning ? 'clickable' : 'not-clickable';
 
+			// Remove "Ubuntu" prefix from release (e.g., "Ubuntu 24.04 LTS" -> "24.04 LTS")
+			const releaseText = instance.release.replace(/^Ubuntu\s*/i, '');
+
+			// Use dark icon for stopped instances, regular icon for running instances
+			const iconUri = isRunning ? ubuntuIconUri : ubuntuDarkIconUri;
+
 			return `
 			<li class="instance-item ${cursorClass}" data-instance-name="${instance.name}" ${clickHandler}>
 				<div class="instance-header">
@@ -18,7 +24,10 @@ export class InstanceListView {
 					<span class="state state-${instance.state.toLowerCase()}">${instance.state}</span>
 				</div>
 				<div class="instance-footer">
-					<span class="instance-release">${instance.release}</span>
+					<div class="instance-release">
+						<img src="${iconUri}" class="ubuntu-icon" alt="Ubuntu" />
+						<span class="version-text">${releaseText}</span>
+					</div>
 					<span class="ip">${instance.ipv4}</span>
 					${isRunning ? `
 					<div class="chevron-container" id="chevron-${instance.name}">

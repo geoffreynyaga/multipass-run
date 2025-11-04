@@ -2,11 +2,25 @@
 // for the documentation about the tasks.json format
 {
 	"version": "2.0.0",
+	"options": {
+		"shell": {
+			"executable": "/bin/zsh",
+			"args": ["-l", "-i", "-c"]
+		}
+	},
 	"tasks": [
 		{
-			"type": "npm",
-			"script": "watch",
-			"problemMatcher": "$ts-webpack-watch",
+			"label": "npm: watch",
+			"type": "shell",
+			"command": "pnpm run watch",
+			"problemMatcher": {
+				"base": "$tsc-watch",
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "^\\[webpack-cli\\] Compiler starting\\.\\.\\.",
+					"endsPattern": "^\\[webpack-cli\\] (Compiler finished|Compiler is watching files for updates\\.\\.\\.)"
+				}
+			},
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never",
@@ -18,8 +32,9 @@
 			}
 		},
 		{
-			"type": "npm",
-			"script": "watch-tests",
+			"label": "npm: watch-tests",
+			"type": "shell",
+			"command": "pnpm run watch-tests",
 			"problemMatcher": "$tsc-watch",
 			"isBackground": true,
 			"presentation": {

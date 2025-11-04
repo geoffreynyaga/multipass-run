@@ -1,10 +1,13 @@
+import * as vscode from 'vscode';
 import { MultipassInstance, MultipassInstanceInfo } from './multipassService';
 import { InstanceListView } from './views/instanceListView';
 import { InstanceInfoView } from './views/instanceInfoView';
 
 export class WebviewContent {
-	public static getHtml(instances: MultipassInstance[]): string {
-		const instancesHtml = InstanceListView.generateHtml(instances);
+	public static getHtml(instances: MultipassInstance[], webview: vscode.Webview, extensionUri: vscode.Uri): string {
+		const ubuntuIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu.svg'));
+		const ubuntuDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu-dark.svg'));
+		const instancesHtml = InstanceListView.generateHtml(instances, ubuntuIconUri.toString(), ubuntuDarkIconUri.toString());
 
 		return `<!DOCTYPE html>
 		<html lang="en">
@@ -173,6 +176,17 @@ export class WebviewContent {
 			.instance-release {
 				color: var(--vscode-descriptionForeground);
 				flex: 1;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.ubuntu-icon {
+				width: 16px;
+				height: 16px;
+				flex-shrink: 0;
+			}
+			.version-text {
+				font-size: 12px;
 			}
 			.chevron-container {
 				display: flex;
