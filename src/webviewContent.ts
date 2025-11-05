@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
 
-import { MultipassInstance, MultipassInstanceInfo } from './multipassService';
+import { InstanceLists, MultipassInstanceInfo } from './multipassService';
 
 import { InstanceInfoView } from './views/instanceInfoView';
 import { InstanceListView } from './views/instanceListView';
 
 export class WebviewContent {
-	public static getHtml(instances: MultipassInstance[], webview: vscode.Webview, extensionUri: vscode.Uri): string {
+	public static getHtml(instanceLists: InstanceLists, webview: vscode.Webview, extensionUri: vscode.Uri): string {
 		const ubuntuIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu.svg'));
 		const ubuntuDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu-dark.svg'));
-		const instancesHtml = InstanceListView.generateHtml(instances, ubuntuIconUri.toString(), ubuntuDarkIconUri.toString());
+		const instancesHtml = InstanceListView.generateHtml(instanceLists, ubuntuIconUri.toString(), ubuntuDarkIconUri.toString());
 
 		return `<!DOCTYPE html>
 		<html lang="en">
@@ -132,6 +132,20 @@ export class WebviewContent {
 			});
 		}
 
+		function recoverInstance(instanceName) {
+			vscode.postMessage({
+				command: 'recoverInstance',
+				instanceName: instanceName
+			});
+		}
+
+		function purgeInstance(instanceName) {
+			vscode.postMessage({
+				command: 'purgeInstance',
+				instanceName: instanceName
+			});
+		}
+
 		// Add context menu support
 			document.addEventListener('contextmenu', (e) => {
 				const instanceItem = e.target.closest('.instance-item');
@@ -202,6 +216,34 @@ export class WebviewContent {
 					menu.remove();
 				};
 				menu.appendChild(deleteOption);
+			} else if (instanceState === 'deleted') {
+				// Options for deleted instances
+				const restoreOption = document.createElement('div');
+				restoreOption.className = 'context-menu-item';
+				restoreOption.textContent = 'Recover Instance';
+				restoreOption.onclick = () => {
+					recoverInstance(instanceName);
+					menu.remove();
+				};
+				menu.appendChild(restoreOption);
+
+				// Add separator
+				const separator = document.createElement('div');
+				separator.style.height = '1px';
+				separator.style.background = 'var(--vscode-menu-separatorBackground)';
+				separator.style.margin = '4px 0';
+				menu.appendChild(separator);
+
+				// Add purge option
+				const purgeOption = document.createElement('div');
+				purgeOption.className = 'context-menu-item';
+				purgeOption.textContent = 'Purge Instance';
+				purgeOption.style.color = 'var(--vscode-errorForeground)';
+				purgeOption.onclick = () => {
+					purgeInstance(instanceName);
+					menu.remove();
+				};
+				menu.appendChild(purgeOption);
 			}
 
 			document.body.appendChild(menu);				// Close menu when clicking outside
@@ -245,12 +287,41 @@ export class WebviewContent {
 				padding: 0;
 				margin: 0;
 			}
+			.separator {
+				display: flex;
+				align-items: center;
+				margin: 16px 0;
+				gap: 12px;
+				list-style: none;
+			}
+			.separator-line {
+				flex: 1;
+				height: 1px;
+				background: var(--vscode-panel-border);
+			}
+			.separator-text {
+				font-size: 10px;
+				font-weight: 600;
+				color: var(--vscode-descriptionForeground);
+				letter-spacing: 0.5px;
+			}
 			.instance-item {
 				padding: 10px;
 				margin: 6px 0;
 				background: var(--vscode-editor-background);
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 4px;
+			}
+			.deleted-instance {
+				opacity: 0.7;
+				background: var(--vscode-sideBar-background);
+				border: 1px solid var(--vscode-panel-border);
+			}
+			.deleted-instance .instance-name {
+				color: var(--vscode-disabledForeground);
+			}
+			.deleted-instance .version-text {
+				color: var(--vscode-descriptionForeground);
 			}
 			.instance-item.clickable {
 				cursor: pointer;
@@ -293,6 +364,15 @@ export class WebviewContent {
 			.state-stopped {
 				background: #5a5a5a;
 				color: white;
+			}
+			.state-deleted {
+				background: #9e9e9e;
+				color: #e0e0e0;
+			}
+			.state-creating {
+				background: #2196F3;
+				color: white;
+				animation: pulse 1.5s ease-in-out infinite;
 			}
 			.state-starting,
 			.state-stopping {

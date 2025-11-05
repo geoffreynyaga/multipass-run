@@ -83,6 +83,30 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						vscode.window.showErrorMessage(`Failed to delete instance '${message.instanceName}': ${result.error}`);
 					}
 				}
+			} else if (message.command === 'recoverInstance') {
+				const result = await MultipassService.recoverInstance(message.instanceName);
+				if (result.success) {
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' recovered`);
+					await this.refresh();
+				} else {
+					vscode.window.showErrorMessage(`Failed to recover instance '${message.instanceName}': ${result.error}`);
+				}
+			} else if (message.command === 'purgeInstance') {
+				const confirm = await vscode.window.showWarningMessage(
+					`Are you sure you want to permanently purge instance '${message.instanceName}'? This cannot be undone.`,
+					{ modal: true },
+					'Purge'
+				);
+
+				if (confirm === 'Purge') {
+					const result = await MultipassService.deleteInstance(message.instanceName, true);
+					if (result.success) {
+						vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
+						await this.refresh();
+					} else {
+						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
+					}
+				}
 			}
 		});
 
@@ -106,7 +130,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 30): Promise<void> {
 		// Refresh immediately to show the new instance
 		await this.refresh();
-		
+
 		let attempts = 0;
 		const pollInterval = setInterval(async () => {
 			attempts++;
@@ -133,8 +157,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 
-		const instances = await MultipassService.getInstances();
-		this._view.webview.html = WebviewContent.getHtml(instances, this._view.webview, this._extensionUri);
+		const instanceLists = await MultipassService.getInstanceLists();
+		this._view.webview.html = WebviewContent.getHtml(instanceLists, this._view.webview, this._extensionUri);
 	}
 }
 
