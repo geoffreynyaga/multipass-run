@@ -4,6 +4,12 @@
   "description": "Run and manage Multipass instances in VsCode",
   "version": "0.0.1",
   "icon": "media/icon.png",
+  "publisher": "GeoffreyNyaga",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/geoffreynyaga/multipass-run"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.105.0"
   },
