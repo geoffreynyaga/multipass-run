@@ -6,9 +6,11 @@ import { createDetailedInstance as createDetailedInstanceCommand } from './comma
 import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
 import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
 import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
+import { purgeInstance as purgeInstanceCommand } from './commands/purgeInstance';
 import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
+import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
 
 // Re-export types and functions
 export type { MultipassInstance, InstanceLists } from './commands/listInstances';
@@ -24,6 +26,8 @@ export { createDefaultInstance } from './commands/launch/createDefaultInstance';
 export { createDetailedInstance } from './commands/launch/createDetailedInstance';
 export { deleteInstance } from './commands/deleteInstance';
 export { recoverInstance } from './commands/recoverInstance';
+export { purgeInstance } from './commands/purgeInstance';
+export { suspendInstance } from './commands/suspendInstance';
 
 // Maintain backward compatibility with class-based API
 export class MultipassService {
@@ -37,4 +41,6 @@ export class MultipassService {
 	public static createDetailedInstance = createDetailedInstanceCommand;
 	public static deleteInstance = deleteInstanceCommand;
 	public static recoverInstance = recoverInstanceCommand;
+	public static purgeInstance = purgeInstanceCommand;
+	public static suspendInstance = suspendInstanceCommand;
 }

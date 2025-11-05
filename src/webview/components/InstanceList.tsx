@@ -10,6 +10,7 @@ interface InstanceListProps {
 	onCreateInstance: () => void;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
+	onSuspendInstance: (name: string) => void;
 	onDeleteInstance: (name: string) => void;
 	onRecoverInstance: (name: string) => void;
 	onPurgeInstance: (name: string) => void;
@@ -24,6 +25,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onCreateInstance,
 	onStartInstance,
 	onStopInstance,
+	onSuspendInstance,
 	onDeleteInstance,
 	onRecoverInstance,
 	onPurgeInstance,
@@ -364,9 +366,65 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 					onClick={(e) => e.stopPropagation()}
 				>
 					{contextMenu.state.toLowerCase() === 'running' && (
+						<>
+							<div
+								onClick={() => {
+									onSuspendInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>⏸</span>
+								Pause (Suspend)
+							</div>
+							<div
+								onClick={() => {
+									onStopInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>⏹</span>
+								Stop Instance
+							</div>
+						</>
+					)}
+					{contextMenu.state.toLowerCase() === 'stopped' && (
 						<div
 							onClick={() => {
-								onStopInstance(contextMenu.instanceName);
+								onStartInstance(contextMenu.instanceName);
 								setContextMenu(null);
 							}}
 							style={{
@@ -387,11 +445,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 								e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
 							}}
 						>
-							<span>⏹</span>
-							Stop Instance
+							<span>▶</span>
+							Start Instance
 						</div>
 					)}
-					{contextMenu.state.toLowerCase() === 'stopped' && (
+					{contextMenu.state.toLowerCase() === 'suspended' && (
 						<div
 							onClick={() => {
 								onStartInstance(contextMenu.instanceName);

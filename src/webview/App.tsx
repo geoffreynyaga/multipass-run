@@ -59,6 +59,10 @@ const App: React.FC = () => {
 		vscode.postMessage({ command: 'stopInstance', instanceName: name });
 	};
 
+	const handleSuspendInstance = (name: string) => {
+		vscode.postMessage({ command: 'suspendInstance', instanceName: name });
+	};
+
 	const handleDeleteInstance = (name: string) => {
 		console.log('handleDeleteInstance called for:', name);
 		vscode.postMessage({ command: 'deleteInstance', instanceName: name });
@@ -89,6 +93,7 @@ const App: React.FC = () => {
 			onCreateInstance={handleCreateInstance}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}
+			onSuspendInstance={handleSuspendInstance}
 			onDeleteInstance={handleDeleteInstance}
 			onRecoverInstance={handleRecoverInstance}
 			onPurgeInstance={handlePurgeInstance}
