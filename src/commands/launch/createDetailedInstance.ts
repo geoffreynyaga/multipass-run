@@ -116,32 +116,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		return undefined;
 	}
 
-	// Create instance with specified parameters
-	await vscode.window.withProgress(
-		{
-			location: vscode.ProgressLocation.Notification,
-			title: `Creating instance '${instanceName}'`,
-			cancellable: false
-		},
-		async (progress) => {
-			progress.report({ increment: 0, message: 'Launching with custom configuration...' });
-
-			const result = await launchInstance({
-				name: instanceName,
-				cpus: cpusInput,
-				memory: memoryInput,
-				disk: diskInput
-			});
-
-			if (result.success) {
-				progress.report({ increment: 50, message: 'Instance created, waiting for it to start...' });
-			} else {
-				vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
-			}
-			return Promise.resolve();
-		}
-	);
-
+	// Return the configuration - the handler will do the optimistic update and launch
 	return {
 		name: instanceName,
 		cpus: cpusInput,

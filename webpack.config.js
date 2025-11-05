@@ -3,6 +3,7 @@
 'use strict';
 
 const path = require('path');
+const webpack = require('webpack');
 
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
@@ -25,16 +26,21 @@ const extensionConfig = {
   },
   resolve: {
     // support reading TypeScript and JavaScript files, 📖 -> https://github.com/TypeStrong/ts-loader
-    extensions: ['.ts', '.js']
+    extensions: ['.ts', '.tsx', '.js', '.jsx']
   },
   module: {
     rules: [
       {
-        test: /\.ts$/,
+        test: /\.tsx?$/,
         exclude: /node_modules/,
         use: [
           {
-            loader: 'ts-loader'
+            loader: 'ts-loader',
+            options: {
+              compilerOptions: {
+                jsx: 'react-jsx'
+              }
+            }
           }
         ]
       }
@@ -45,4 +51,57 @@ const extensionConfig = {
     level: "log", // enables logging required for problem matchers
   },
 };
-module.exports = [ extensionConfig ];
+
+/** @type WebpackConfig */
+const webviewConfig = {
+  target: 'web', // Webview runs in a browser context
+  mode: 'none',
+  entry: './src/webview/index.tsx', // React app entry point
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'webview.js',
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    fallback: {
+      // Don't polyfill Node.js modules for the browser
+      process: false,
+      buffer: false,
+      util: false,
+      path: false,
+      fs: false,
+    }
+  },
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              compilerOptions: {
+                jsx: 'react-jsx'
+              }
+            }
+          }
+        ]
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader', 'postcss-loader']
+      }
+    ]
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env': JSON.stringify({}),
+      'process': JSON.stringify(undefined)
+    })
+  ],
+  devtool: 'nosources-source-map',
+};
+
+module.exports = [ extensionConfig, webviewConfig ];
