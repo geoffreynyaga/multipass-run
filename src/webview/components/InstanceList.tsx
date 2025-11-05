@@ -276,7 +276,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							</div>							{/* Expanded details section */}
 							{isExpanded && isRunning && (
 								<div style={{
-									padding: '12px 10px',
+									paddingTop: '0',
+									paddingBottom: '12px',
+									paddingLeft: '10px',
+									paddingRight: '10px',
 									background: 'var(--vscode-sideBar-background)',
 								}}>
 									{loadingInfo ? (

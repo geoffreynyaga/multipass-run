@@ -14,10 +14,6 @@
   "contributes": {
     "commands": [
       {
-        "command": "multipass-run.helloWorld",
-        "title": "Hello World"
-      },
-      {
         "command": "multipass-run.refresh",
         "title": "Refresh Multipass Instances",
         "icon": "$(refresh)"
@@ -33,7 +29,7 @@
         {
           "id": "multipass-run-sidebar",
           "title": "Multipass Run",
-          "icon": "$(rocket)"
+          "icon": "media/icon.svg"
         }
       ]
     },
@@ -43,7 +39,7 @@
           "id": "multipass-run-view",
           "name": "Instances",
           "type": "webview",
-          "icon": "$(rocket)"
+          "icon": "media/icon.svg"
         }
       ]
     },
