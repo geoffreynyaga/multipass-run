@@ -7,6 +7,7 @@ interface InstanceListProps {
 	instanceLists: InstanceLists;
 	instanceInfo: MultipassInstanceInfo | null;
 	ubuntuIconUri: string;
+	ubuntuDarkIconUri: string;
 	onCreateInstance: () => void;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
@@ -22,6 +23,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	instanceLists,
 	instanceInfo: propInstanceInfo,
 	ubuntuIconUri,
+	ubuntuDarkIconUri,
 	onCreateInstance,
 	onStartInstance,
 	onStopInstance,
@@ -112,39 +114,39 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				<button
 					onClick={onCreateInstance}
 					style={{
-						background: '#0e639c',
+						background: '#0E8420',
 						color: '#ffffff',
-						border: '1px solid #1177bb',
-						padding: '10px 20px',
-						borderRadius: '2px',
+						border: 'none',
+						padding: '12px 24px',
 						cursor: 'pointer',
-						fontSize: '13px',
+						fontSize: '14px',
+						fontWeight: '500',
 						fontFamily: 'var(--vscode-font-family)',
 						display: 'inline-flex',
 						alignItems: 'center',
-						gap: '8px',
-						transition: 'all 0.1s ease',
-						boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+						gap: '10px',
+						transition: 'all 0.2s ease',
+						boxShadow: '0 2px 8px rgba(14, 132, 32, 0.3)',
+						letterSpacing: '0.3px',
 					}}
 					onMouseOver={(e) => {
-						e.currentTarget.style.background = '#1177bb';
-						e.currentTarget.style.borderColor = '#1890d5';
+						e.currentTarget.style.background = '#17aa2f';
+						e.currentTarget.style.boxShadow = '0 4px 12px rgba(14, 132, 32, 0.4)';
 					}}
 					onMouseOut={(e) => {
-						e.currentTarget.style.background = '#0e639c';
-						e.currentTarget.style.borderColor = '#1177bb';
+						e.currentTarget.style.background = '#0E8420';
+						e.currentTarget.style.boxShadow = '0 2px 8px rgba(14, 132, 32, 0.3)';
 					}}
 					onMouseDown={(e) => {
-						e.currentTarget.style.background = '#0d5a8f';
-						e.currentTarget.style.transform = 'translateY(1px)';
-						e.currentTarget.style.boxShadow = 'none';
+						e.currentTarget.style.background = '#0a6817';
+						e.currentTarget.style.boxShadow = '0 1px 4px rgba(14, 132, 32, 0.2)';
 					}}
 					onMouseUp={(e) => {
-						e.currentTarget.style.transform = 'translateY(0)';
+						e.currentTarget.style.background = '#17aa2f';
+						e.currentTarget.style.boxShadow = '0 4px 12px rgba(14, 132, 32, 0.4)';
 					}}
 				>
-					<span style={{ fontSize: '16px', fontWeight: 'bold', lineHeight: '1' }}>+</span>
-					Create New Instance
+					Create new instance
 				</button>
 			</div>
 		);
@@ -167,7 +169,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 			return { ...baseStyle, background: '#5a5a5a', color: 'white' };
 		} else if (stateLower === 'deleted') {
 			return { ...baseStyle, background: '#9e9e9e', color: '#e0e0e0' };
-		} else if (stateLower === 'stopping' || stateLower === 'starting' || stateLower === 'creating' || stateLower === 'unknown') {
+		} else if (stateLower === 'stopping' || stateLower === 'starting' || stateLower === 'creating' || stateLower === 'unknown' || stateLower === 'recovering' || stateLower === 'deleting') {
 			// Blinking badge for intermediate/unknown states
 			return {
 				...baseStyle,
@@ -247,10 +249,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 								</div>
 								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', gap: '8px' }}>
 									<div style={{ color: 'var(--vscode-descriptionForeground)', flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-										{/* Ubuntu icon from media/distros folder */}
-										{ubuntuIconUri && (
+										{/* Ubuntu icon from media/distros folder - use dark icon for stopped/suspended */}
+										{(ubuntuIconUri || ubuntuDarkIconUri) && (
 											<img
-												src={ubuntuIconUri}
+												src={instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended' ? ubuntuDarkIconUri : ubuntuIconUri}
 												alt="Ubuntu"
 												style={{
 													width: '12px',
@@ -322,6 +324,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						{deleted.map(instance => (
 							<li
 								key={instance.name}
+								onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
 								style={{
 									padding: '10px',
 									margin: '6px 0',
@@ -329,6 +332,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									background: 'var(--vscode-sideBar-background)',
 									border: '1px solid var(--vscode-panel-border)',
 									borderRadius: '4px',
+									cursor: 'default',
 								}}
 							>
 								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -477,33 +481,92 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							Start Instance
 						</div>
 					)}
-					<div
-						onClick={() => {
-							onDeleteInstance(contextMenu.instanceName);
-							setContextMenu(null);
-						}}
-						style={{
-							padding: '6px 12px',
-							cursor: 'pointer',
-							fontSize: '12px',
-							color: 'var(--vscode-errorForeground)',
-							display: 'flex',
-							alignItems: 'center',
-							gap: '8px',
-							borderTop: contextMenu.state.toLowerCase() !== 'deleted' ? '1px solid var(--vscode-menu-separatorBackground)' : 'none',
-							marginTop: contextMenu.state.toLowerCase() !== 'deleted' ? '4px' : '0',
-							paddingTop: contextMenu.state.toLowerCase() !== 'deleted' ? '8px' : '6px',
-						}}
-						onMouseOver={(e) => {
-							e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-						}}
-						onMouseOut={(e) => {
-							e.currentTarget.style.background = 'transparent';
-						}}
-					>
-						<span>🗑</span>
-						Delete Instance
-					</div>
+					{contextMenu.state.toLowerCase() === 'deleted' && (
+						<>
+							<div
+								onClick={() => {
+									onRecoverInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>♻️</span>
+								Recover Instance
+							</div>
+							<div
+								onClick={() => {
+									onPurgeInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: '#f44336',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+									borderTop: '1px solid var(--vscode-menu-separatorBackground)',
+									marginTop: '4px',
+									paddingTop: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+								}}
+							>
+								<span>⚠️</span>
+								Purge Instance
+							</div>
+						</>
+					)}
+					{contextMenu.state.toLowerCase() !== 'deleted' && (
+						<div
+							onClick={() => {
+								onDeleteInstance(contextMenu.instanceName);
+								setContextMenu(null);
+							}}
+							style={{
+								padding: '6px 12px',
+								cursor: 'pointer',
+								fontSize: '12px',
+								color: 'var(--vscode-errorForeground)',
+								display: 'flex',
+								alignItems: 'center',
+								gap: '8px',
+								borderTop: '1px solid var(--vscode-menu-separatorBackground)',
+								marginTop: '4px',
+								paddingTop: '8px',
+							}}
+							onMouseOver={(e) => {
+								e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+							}}
+							onMouseOut={(e) => {
+								e.currentTarget.style.background = 'transparent';
+							}}
+						>
+							<span>🗑</span>
+							Delete Instance
+						</div>
+					)}
 				</div>
 			)}
 

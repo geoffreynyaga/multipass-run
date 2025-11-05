@@ -90,6 +90,7 @@ const App: React.FC = () => {
 			instanceLists={instanceLists}
 			instanceInfo={instanceInfo}
 			ubuntuIconUri={window.ubuntuIconUri || ''}
+			ubuntuDarkIconUri={window.ubuntuDarkIconUri || ''}
 			onCreateInstance={handleCreateInstance}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}

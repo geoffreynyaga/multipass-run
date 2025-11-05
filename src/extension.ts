@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-import { MultipassService, createDefaultInstance, createDetailedInstance } from './multipassService';
+import { MultipassService, createDefaultInstance, createDetailedInstance, launchInstance } from './multipassService';
 
 import { WebviewContent } from './webviewContent';
 
@@ -111,6 +111,17 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 				if (choice === 'Delete') {
 					console.log('Delete confirmed');
+					// Show deleting state immediately by updating the instance in the list
+					const currentLists = await MultipassService.getInstanceLists();
+					const deletingInstance = currentLists.active.find(i => i.name === message.instanceName);
+					if (deletingInstance && this._view) {
+						deletingInstance.state = 'Deleting';
+						this._view.webview.postMessage({
+							command: 'updateInstances',
+							instanceLists: currentLists
+						});
+					}
+
 					const result = await MultipassService.deleteInstance(message.instanceName, false);
 					console.log('Delete result:', result);
 
@@ -119,9 +130,21 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to delete instance '${message.instanceName}': ${result.error}`);
+						await this.refresh();
 					}
 				} else if (choice === 'Purge') {
 					console.log('Purge confirmed');
+					// Show deleting state immediately by updating the instance in the list
+					const currentLists = await MultipassService.getInstanceLists();
+					const deletingInstance = currentLists.active.find(i => i.name === message.instanceName);
+					if (deletingInstance && this._view) {
+						deletingInstance.state = 'Deleting';
+						this._view.webview.postMessage({
+							command: 'updateInstances',
+							instanceLists: currentLists
+						});
+					}
+
 					const result = await MultipassService.deleteInstance(message.instanceName, true);
 					console.log('Purge result:', result);
 
@@ -130,32 +153,61 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
+						await this.refresh();
 					}
 				} else {
 					console.log('Delete cancelled by user');
 				}
 			} else if (message.command === 'recoverInstance') {
+				// Show recovering state immediately by updating the instance in the list
+				const currentLists = await MultipassService.getInstanceLists();
+				const recoveringInstance = currentLists.deleted.find(i => i.name === message.instanceName);
+				if (recoveringInstance && this._view) {
+					recoveringInstance.state = 'Recovering';
+					this._view.webview.postMessage({
+						command: 'updateInstances',
+						instanceLists: currentLists
+					});
+				}
+
 				const result = await MultipassService.recoverInstance(message.instanceName);
 				if (result.success) {
-					vscode.window.showInformationMessage(`Instance '${message.instanceName}' recovered`);
-					await this.refresh();
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is recovering...`);
+					// Refresh after a short delay to show recovered state
+					setTimeout(async () => {
+						await this.refresh();
+						vscode.window.showInformationMessage(`Instance '${message.instanceName}' recovered`);
+					}, 2000);
 				} else {
 					vscode.window.showErrorMessage(`Failed to recover instance '${message.instanceName}': ${result.error}`);
+					await this.refresh();
 				}
 			} else if (message.command === 'purgeInstance') {
 				const confirm = await vscode.window.showWarningMessage(
-					`Are you sure you want to permanently purge all deleted instances? This cannot be undone.`,
+					`Are you sure you want to permanently purge instance '${message.instanceName}'? This cannot be undone.`,
 					{ modal: true },
-					'Purge All'
+					'Purge'
 				);
 
-				if (confirm === 'Purge All') {
-					const result = await MultipassService.purgeInstance();
+				if (confirm === 'Purge') {
+					// Show deleting state immediately by updating the instance in the list
+					const currentLists = await MultipassService.getInstanceLists();
+					const deletingInstance = currentLists.deleted.find(i => i.name === message.instanceName);
+					if (deletingInstance && this._view) {
+						deletingInstance.state = 'Deleting';
+						this._view.webview.postMessage({
+							command: 'updateInstances',
+							instanceLists: currentLists
+						});
+					}
+
+					const result = await MultipassService.deleteInstance(message.instanceName, true);
 					if (result.success) {
-						vscode.window.showInformationMessage('All deleted instances purged');
+						vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
 						await this.refresh();
 					} else {
-						vscode.window.showErrorMessage(`Failed to purge instances: ${result.error}`);
+						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
+						await this.refresh();
 					}
 				}
 			}
@@ -228,7 +280,23 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					instanceLists: currentLists
 				});
 			}
-			await this.pollInstanceStatus(config.name);
+
+			// Launch the instance with the custom configuration
+			const result = await launchInstance({
+				name: config.name,
+				cpus: config.cpus,
+				memory: config.memory,
+				disk: config.disk
+			});
+
+			if (result.success) {
+				// Start polling for the instance status
+				await this.pollInstanceStatus(config.name);
+			} else {
+				// If creation failed, refresh to remove the optimistic instance
+				vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
+				await this.refresh();
+			}
 		}
 	}
 
