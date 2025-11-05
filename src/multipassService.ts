@@ -4,9 +4,9 @@ import { getInstanceLists as getInstanceListsCommand, getInstances as getInstanc
 import { createDefaultInstance as createDefaultInstanceCommand } from './commands/launch/createDefaultInstance';
 import { createDetailedInstance as createDetailedInstanceCommand } from './commands/launch/createDetailedInstance';
 import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
-import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
 import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
 import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
+import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
 
