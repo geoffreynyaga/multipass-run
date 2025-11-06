@@ -10,6 +10,7 @@ import { WebviewContent } from './webviewContent';
 class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _htmlInitialized = false;
+	private _instanceTerminals: Map<string, vscode.Terminal[]> = new Map();
 
 	constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -52,6 +53,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				const result = await MultipassService.stopInstance(message.instanceName);
 				if (result.success) {
 					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is stopping...`);
+					// Close associated terminals
+					this.closeInstanceTerminals(message.instanceName);
 					// Refresh after a short delay to show stopped state
 					setTimeout(async () => {
 						await this.refresh();
@@ -96,6 +99,95 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					// Refresh to clear the starting state
 					await this.refresh();
 				}
+			} else if (message.command === 'shellInstance') {
+				// Open a shell in the instance using VS Code's integrated terminal
+				const terminal = vscode.window.createTerminal({
+					name: `Multipass: ${message.instanceName}`,
+					message: `Opening shell in instance '${message.instanceName}'...`
+				});
+				terminal.show();
+
+				// Track this terminal for the instance
+				if (!this._instanceTerminals.has(message.instanceName)) {
+					this._instanceTerminals.set(message.instanceName, []);
+				}
+				this._instanceTerminals.get(message.instanceName)!.push(terminal);
+
+				// Find the multipass path
+				const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
+				terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+			} else if (message.command === 'startAndShellInstance') {
+				// Start the instance first
+				const result = await MultipassService.startInstance(message.instanceName);
+				if (result.success) {
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is starting...`);
+					
+					// Wait a bit for the instance to start, then open shell
+					setTimeout(() => {
+						const terminal = vscode.window.createTerminal({
+							name: `Multipass: ${message.instanceName}`,
+							message: `Opening shell in instance '${message.instanceName}'...`
+						});
+						terminal.show();
+
+						// Track this terminal for the instance
+						if (!this._instanceTerminals.has(message.instanceName)) {
+							this._instanceTerminals.set(message.instanceName, []);
+						}
+						this._instanceTerminals.get(message.instanceName)!.push(terminal);
+
+						// Find the multipass path
+						const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
+						terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+					}, 3000); // Wait 3 seconds for instance to start
+
+					// Start polling for status updates
+					this.pollInstanceStatus(message.instanceName);
+				} else {
+					vscode.window.showErrorMessage(`Failed to start instance '${message.instanceName}': ${result.error}`);
+					await this.refresh();
+				}
+			} else if (message.command === 'recoverAndShellInstance') {
+				// Recover the instance first
+				const result = await MultipassService.recoverInstance(message.instanceName);
+				if (result.success) {
+					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is recovering...`);
+					
+					// Wait for recovery and start, then open shell
+					setTimeout(async () => {
+						// Start the instance
+						const startResult = await MultipassService.startInstance(message.instanceName);
+						if (startResult.success) {
+							// Wait a bit more for instance to be running
+							setTimeout(() => {
+								const terminal = vscode.window.createTerminal({
+									name: `Multipass: ${message.instanceName}`,
+									message: `Opening shell in instance '${message.instanceName}'...`
+								});
+								terminal.show();
+
+								// Track this terminal for the instance
+								if (!this._instanceTerminals.has(message.instanceName)) {
+									this._instanceTerminals.set(message.instanceName, []);
+								}
+								this._instanceTerminals.get(message.instanceName)!.push(terminal);
+
+								// Find the multipass path
+								const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
+								terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+							}, 3000); // Wait 3 seconds for instance to start
+						}
+					}, 2000); // Wait 2 seconds for recovery
+
+					// Refresh after a short delay
+					setTimeout(async () => {
+						await this.refresh();
+						vscode.window.showInformationMessage(`Instance '${message.instanceName}' recovered and shell opened`);
+					}, 6000); // Total wait time
+				} else {
+					vscode.window.showErrorMessage(`Failed to recover instance '${message.instanceName}': ${result.error}`);
+					await this.refresh();
+				}
 			} else if (message.command === 'launchInstance') {
 				await this.createDefaultInstance();
 			} else if (message.command === 'deleteInstance') {
@@ -127,6 +219,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 					if (result.success) {
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' deleted (can be recovered)`);
+						// Close associated terminals
+						this.closeInstanceTerminals(message.instanceName);
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to delete instance '${message.instanceName}': ${result.error}`);
@@ -150,6 +244,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 					if (result.success) {
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' permanently deleted`);
+						// Close associated terminals
+						this.closeInstanceTerminals(message.instanceName);
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
@@ -204,6 +300,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					const result = await MultipassService.deleteInstance(message.instanceName, true);
 					if (result.success) {
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
+						// Close associated terminals
+						this.closeInstanceTerminals(message.instanceName);
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
@@ -300,6 +398,33 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private closeInstanceTerminals(instanceName: string): void {
+		const terminals = this._instanceTerminals.get(instanceName);
+		if (terminals) {
+			// Close all terminals for this instance
+			terminals.forEach(terminal => {
+				terminal.dispose();
+			});
+			// Clear the array
+			this._instanceTerminals.delete(instanceName);
+		}
+	}
+
+	public handleTerminalClosed(terminal: vscode.Terminal): void {
+		// Remove this terminal from our tracking
+		for (const [instanceName, terminals] of this._instanceTerminals.entries()) {
+			const index = terminals.indexOf(terminal);
+			if (index !== -1) {
+				terminals.splice(index, 1);
+				// If no more terminals for this instance, remove the entry
+				if (terminals.length === 0) {
+					this._instanceTerminals.delete(instanceName);
+				}
+				break;
+			}
+		}
+	}
+
 	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 60): Promise<void> {
 		// Don't refresh immediately - the optimistic update already added it
 		// Just start polling
@@ -358,6 +483,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const provider = new MultipassViewProvider(context.extensionUri);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
+	);
+
+	// Listen for terminal close events to clean up our tracking
+	context.subscriptions.push(
+		vscode.window.onDidCloseTerminal(terminal => {
+			provider.handleTerminalClosed(terminal);
+		})
 	);
 
 	// Register refresh command

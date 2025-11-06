@@ -8,6 +8,7 @@ import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanc
 import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
 import { purgeInstance as purgeInstanceCommand } from './commands/purgeInstance';
 import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
+import { shellInstance as shellInstanceCommand } from './commands/shell';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
 import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
@@ -28,6 +29,7 @@ export { deleteInstance } from './commands/deleteInstance';
 export { recoverInstance } from './commands/recoverInstance';
 export { purgeInstance } from './commands/purgeInstance';
 export { suspendInstance } from './commands/suspendInstance';
+export { shellInstance } from './commands/shell';
 
 // Maintain backward compatibility with class-based API
 export class MultipassService {
@@ -43,4 +45,5 @@ export class MultipassService {
 	public static recoverInstance = recoverInstanceCommand;
 	public static purgeInstance = purgeInstanceCommand;
 	public static suspendInstance = suspendInstanceCommand;
+	public static shellInstance = shellInstanceCommand;
 }

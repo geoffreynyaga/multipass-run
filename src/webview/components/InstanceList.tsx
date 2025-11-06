@@ -12,6 +12,9 @@ interface InstanceListProps {
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
 	onSuspendInstance: (name: string) => void;
+	onShellInstance: (name: string) => void;
+	onStartAndShellInstance: (name: string) => void;
+	onRecoverAndShellInstance: (name: string) => void;
 	onDeleteInstance: (name: string) => void;
 	onRecoverInstance: (name: string) => void;
 	onPurgeInstance: (name: string) => void;
@@ -28,6 +31,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onStartInstance,
 	onStopInstance,
 	onSuspendInstance,
+	onShellInstance,
+	onStartAndShellInstance,
+	onRecoverAndShellInstance,
 	onDeleteInstance,
 	onRecoverInstance,
 	onPurgeInstance,
@@ -376,6 +382,31 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						<>
 							<div
 								onClick={() => {
+									onShellInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								Open Shell
+							</div>
+							<div
+								onClick={() => {
 									onSuspendInstance(contextMenu.instanceName);
 									setContextMenu(null);
 								}}
@@ -429,60 +460,116 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						</>
 					)}
 					{contextMenu.state.toLowerCase() === 'stopped' && (
-						<div
-							onClick={() => {
-								onStartInstance(contextMenu.instanceName);
-								setContextMenu(null);
-							}}
-							style={{
-								padding: '6px 12px',
-								cursor: 'pointer',
-								fontSize: '12px',
-								color: 'var(--vscode-menu-foreground)',
-								display: 'flex',
-								alignItems: 'center',
-								gap: '8px',
-							}}
-							onMouseOver={(e) => {
-								e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-								e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-							}}
-							onMouseOut={(e) => {
-								e.currentTarget.style.background = 'transparent';
-								e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-							}}
-						>
-							<span>▶</span>
-							Start Instance
-						</div>
+						<>
+							<div
+								onClick={() => {
+									onStartInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>▶</span>
+								Start Instance
+							</div>
+							<div
+								onClick={() => {
+									onStartAndShellInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>🖥️</span>
+								Start and Shell
+							</div>
+						</>
 					)}
 					{contextMenu.state.toLowerCase() === 'suspended' && (
-						<div
-							onClick={() => {
-								onStartInstance(contextMenu.instanceName);
-								setContextMenu(null);
-							}}
-							style={{
-								padding: '6px 12px',
-								cursor: 'pointer',
-								fontSize: '12px',
-								color: 'var(--vscode-menu-foreground)',
-								display: 'flex',
-								alignItems: 'center',
-								gap: '8px',
-							}}
-							onMouseOver={(e) => {
-								e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-								e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-							}}
-							onMouseOut={(e) => {
-								e.currentTarget.style.background = 'transparent';
-								e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-							}}
-						>
-							<span>▶</span>
-							Start Instance
-						</div>
+						<>
+							<div
+								onClick={() => {
+									onStartInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>▶</span>
+								Start Instance
+							</div>
+							<div
+								onClick={() => {
+									onStartAndShellInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>🖥️</span>
+								Start and Shell
+							</div>
+						</>
 					)}
 					{contextMenu.state.toLowerCase() === 'deleted' && (
 						<>
@@ -511,6 +598,32 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							>
 								<span>♻️</span>
 								Recover Instance
+							</div>
+							<div
+								onClick={() => {
+									onRecoverAndShellInstance(contextMenu.instanceName);
+									setContextMenu(null);
+								}}
+								style={{
+									padding: '6px 12px',
+									cursor: 'pointer',
+									fontSize: '12px',
+									color: 'var(--vscode-menu-foreground)',
+									display: 'flex',
+									alignItems: 'center',
+									gap: '8px',
+								}}
+								onMouseOver={(e) => {
+									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
+									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
+								}}
+								onMouseOut={(e) => {
+									e.currentTarget.style.background = 'transparent';
+									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
+								}}
+							>
+								<span>🖥️</span>
+								Recover and Shell
 							</div>
 							<div
 								onClick={() => {
