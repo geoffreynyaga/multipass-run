@@ -46,7 +46,11 @@ export async function createDefaultInstance(
 	}
 
 	// Prepare quick pick items for images
-	const imageItems: vscode.QuickPickItem[] = [];
+	interface ImageQuickPickItem extends vscode.QuickPickItem {
+		imageKey: string;
+	}
+
+	const imageItems: ImageQuickPickItem[] = [];
 
 	// Add Ubuntu LTS images first (most common)
 	const ltsImages = Object.entries(imagesResult.images)
@@ -64,8 +68,7 @@ export async function createDefaultInstance(
 			detail,
 			picked: key === '24.04', // Default to latest LTS
 			alwaysShow: true,
-			// Store the key in the iconPath field (we'll extract it later)
-			iconPath: key as any
+			imageKey: key
 		});
 	}
 
@@ -77,7 +80,8 @@ export async function createDefaultInstance(
 	if (otherImages.length > 0) {
 		imageItems.push({
 			label: '',
-			kind: vscode.QuickPickItemKind.Separator
+			kind: vscode.QuickPickItemKind.Separator,
+			imageKey: ''
 		});
 
 		for (const [key, image] of otherImages) {
@@ -89,7 +93,7 @@ export async function createDefaultInstance(
 				label,
 				description,
 				detail,
-				iconPath: key as any
+				imageKey: key
 			});
 		}
 	}
@@ -106,10 +110,10 @@ export async function createDefaultInstance(
 		return undefined;
 	}
 
-	// Extract the image key from iconPath
-	const imageKey = selectedImage.iconPath as any as string;
+	// Extract the image key
+	const imageKey = selectedImage.imageKey;
 	const selectedImageData = imagesResult.images[imageKey];
-	
+
 	// Notify that image was selected
 	if (selectedImageData) {
 		callbacks?.onImageSelected?.(imageKey, selectedImageData.release);

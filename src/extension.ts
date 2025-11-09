@@ -368,14 +368,14 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	public async createDetailedInstance(): Promise<void> {
 		const config = await createDetailedInstance();
 		if (config) {
-			// Optimistically add the instance to the list with "Creating" state
+			// Optimistically add the instance to the list with "Downloading Image" state
 			if (this._view) {
 				const currentLists = await MultipassService.getInstanceLists();
 				const newInstance = {
 					name: config.name,
-					state: 'Creating',
+					state: 'Downloading Image',
 					ipv4: '',
-					release: 'Ubuntu 22.04 LTS' // Default, will be updated when instance is created
+					release: `Ubuntu ${config.imageRelease}`
 				};
 				currentLists.active.push(newInstance);
 				this._view.webview.postMessage({
@@ -384,13 +384,26 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				});
 			}
 
-			// Launch the instance with the custom configuration
-			const result = await launchInstance({
-				name: config.name,
-				cpus: config.cpus,
-				memory: config.memory,
-				disk: config.disk
-			});
+			// Launch the instance with the custom configuration and progress tracking
+			const result = await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: `Creating ${config.name}`,
+					cancellable: false
+				},
+				async (progress) => {
+					return await launchInstance({
+						name: config.name,
+						cpus: config.cpus,
+						memory: config.memory,
+						disk: config.disk,
+						image: config.image,
+						onProgress: (message) => {
+							progress.report({ message });
+						}
+					});
+				}
+			);
 
 			if (result.success) {
 				// Start polling for the instance status
