@@ -1,3 +1,5 @@
+import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
+
 import { MultipassInstanceInfo } from '../../multipassService';
 import React from 'react';
 
@@ -6,109 +8,269 @@ interface InstanceDetailsProps {
 	onDelete: (name: string) => void;
 }
 
+// Helper to parse usage strings like "2.34GB out of 4.77GB (49.1%)"
+const parseUsage = (usageString: string): { used: string; total: string; percentage: string } | null => {
+	const match = usageString.match(/([\d.]+\s*[A-Z]+)\s+out of\s+([\d.]+\s*[A-Z]+)\s+\(([\d.]+)%\)/i);
+	if (match) {
+		return { used: match[1], total: match[2], percentage: match[3] };
+	}
+	return null;
+};
+
 export const InstanceDetails: React.FC<InstanceDetailsProps> = ({ info, onDelete }) => {
-	const detailRows = [
-		{ label: 'Zone', value: info.zone },
-		{ label: 'Snapshots', value: info.snapshots.toString() },
-		{ label: 'CPU(s)', value: info.cpus },
-		{ label: 'Load', value: info.load },
-		{ label: 'Disk Usage', value: info.diskUsage },
-		{ label: 'Memory Usage', value: info.memoryUsage },
-		{ label: 'Mounts', value: info.mounts }
-	];
+	const distributionFont = getDistributionFont(info.release || '');
+	const monoFont = getMonoFont();
+
+	// Parse disk and memory usage
+	const diskUsage = parseUsage(info.diskUsage);
+	const memoryUsage = parseUsage(info.memoryUsage);
 
 	return (
 		<div style={{
-			marginTop: '8px',
-			paddingTop: '12px',
-			borderTop: '1px solid var(--vscode-panel-border)',
+			marginTop: '0',
+			paddingTop: '20px',
+			paddingBottom: '8px',
+			borderBottom: '1px solid rgba(127,127,127,0.9)',
 		}}>
-			{/* Detail rows */}
-			<div style={{ marginBottom: '12px' }}>
-				{detailRows.map((row, index) => (
-					<div
-						key={index}
-						style={{
-							display: 'flex',
-							justifyContent: 'space-between',
-							alignItems: 'center',
-							fontSize: '11px',
-							padding: '4px 0',
-						}}
-					>
-						<span style={{
-							color: 'var(--vscode-descriptionForeground)',
-							fontWeight: '600'
-						}}>
-							{row.label}:
-						</span>
-						<span style={{
-							color: 'var(--vscode-editor-foreground)',
-							textAlign: 'right',
-							maxWidth: '60%',
-							wordBreak: 'break-word'
-						}}>
-							{row.value}
-						</span>
-					</div>
-				))}
+			{/* Metrics Section Header */}
+			<div style={{
+				fontSize: '9px',
+				textTransform: 'uppercase',
+				letterSpacing: '1.5px',
+				color: 'var(--vscode-descriptionForeground)',
+				marginBottom: '24px',
+				fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+				fontWeight: '500',
+				opacity: 0.7
+			}}>
+				Metrics
 			</div>
 
-			{/* Separator */}
+			{/* Metrics Grid */}
 			<div style={{
-				borderTop: '1px solid var(--vscode-panel-border)',
-				margin: '12px 0'
-			}}></div>
+				display: 'grid',
+				gridTemplateColumns: '1fr 1fr',
+				gap: '32px 48px',
+				marginBottom: '32px'
+			}}>
+				{/* CPU */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						CPU
+					</div>
+					<div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+						<div style={{
+							fontSize: '11px',
+							fontWeight: '300',
+							color: 'var(--vscode-editor-foreground)',
+							fontFamily: monoFont,
+							letterSpacing: '0.01em'
+						}}>
+							{info.cpus}
+						</div>
+						<div style={{
+							fontSize: '10px',
+							color: 'var(--vscode-descriptionForeground)',
+							fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+							opacity: 0.6
+						}}>
+							cores
+						</div>
+					</div>
+					<div style={{
+						marginTop: '4px',
+						fontSize: '10px',
+						color: 'var(--vscode-descriptionForeground)',
+						fontFamily: monoFont,
+						opacity: 0.5
+					}}>
+						load {info.load}
+					</div>
+				</div>
 
-			{/* Delete button */}
-			<button
-				onClick={(e) => {
-					e.stopPropagation();
-					console.log('Delete button clicked for instance:', info.name);
-					// Remove confirmation here - let the extension handle it
-					onDelete(info.name);
-				}}
-				style={{
-					width: '100%',
-					padding: '8px 16px',
-					background: '#c74440',
-					color: '#ffffff',
-					border: '1px solid #a93c38',
-					borderRadius: '2px',
-					cursor: 'pointer',
-					fontSize: '11px',
-					fontFamily: 'var(--vscode-font-family)',
-					fontWeight: '500',
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					gap: '8px',
-					transition: 'all 0.1s ease',
-				}}
-				onMouseOver={(e) => {
-					e.currentTarget.style.background = '#a93c38';
-					e.currentTarget.style.borderColor = '#8b322f';
-				}}
-				onMouseOut={(e) => {
-					e.currentTarget.style.background = '#c74440';
-					e.currentTarget.style.borderColor = '#a93c38';
-				}}
-			>
-				<svg
-					style={{ width: '14px', height: '14px' }}
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
+				{/* Memory */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						Memory
+					</div>
+					<div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+						<div style={{
+							fontSize: '11px',
+							fontWeight: '300',
+							color: 'var(--vscode-editor-foreground)',
+							fontFamily: monoFont,
+							letterSpacing: '-0.02em'
+						}}>
+							{memoryUsage?.used || info.memoryUsage}
+						</div>
+						{memoryUsage && (
+							<div style={{
+								fontSize: '10px',
+								color: 'var(--vscode-descriptionForeground)',
+								fontFamily: monoFont,
+								opacity: 0.6,
+								letterSpacing: '-0.02em'
+							}}>
+								/ {memoryUsage.total}
+							</div>
+						)}
+					</div>
+				</div>
+
+				{/* Disk */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						Disk
+					</div>
+					<div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+						<div style={{
+							fontSize: '11px',
+							fontWeight: '300',
+							color: 'var(--vscode-editor-foreground)',
+							fontFamily: monoFont,
+							letterSpacing: '-0.02em'
+						}}>
+							{diskUsage?.used || info.diskUsage}
+						</div>
+						{diskUsage && (
+							<div style={{
+								fontSize: '10px',
+								color: 'var(--vscode-descriptionForeground)',
+								fontFamily: monoFont,
+								opacity: 0.6,
+								letterSpacing: '-0.02em'
+							}}>
+								/ {diskUsage.total}
+							</div>
+						)}
+					</div>
+				</div>
+
+				{/* Zone */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						Zone
+					</div>
+					<div style={{
+						fontSize: '11px',
+						color: 'var(--vscode-editor-foreground)',
+						fontFamily: distributionFont,
+						opacity: 0.7
+					}}>
+						{info.zone}
+					</div>
+				</div>
+
+				{/* Snapshots */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						Snapshots
+					</div>
+					<div style={{
+						fontSize: '11px',
+						color: 'var(--vscode-editor-foreground)',
+						fontFamily: monoFont,
+						opacity: 0.7
+					}}>
+						{info.snapshots}
+					</div>
+				</div>
+
+				{/* Mounts */}
+				<div>
+					<div style={{
+						fontSize: '9px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '6px',
+						textTransform: 'uppercase',
+						letterSpacing: '1px',
+						opacity: 0.6,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+					}}>
+						Mounts
+					</div>
+					<div style={{
+						fontSize: '11px',
+						color: 'var(--vscode-descriptionForeground)',
+						fontFamily: distributionFont,
+						opacity: info.mounts ? 0.7 : 0.4
+					}}>
+						{info.mounts || '—'}
+					</div>
+				</div>
+			</div>
+
+			{/* Actions */}
+			<div style={{ marginBottom: '16px' }}>
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						onDelete(info.name);
+					}}
+					style={{
+						fontSize: '9px',
+						textTransform: 'uppercase',
+						letterSpacing: '1.5px',
+						color: 'var(--vscode-errorForeground)',
+						background: 'transparent',
+						border: 'none',
+						cursor: 'pointer',
+						padding: '8px 0',
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+						fontWeight: '500',
+						transition: 'opacity 0.2s ease',
+						opacity: 0.8
+					}}
+					onMouseOver={(e) => {
+						e.currentTarget.style.opacity = '1';
+					}}
+					onMouseOut={(e) => {
+						e.currentTarget.style.opacity = '0.8';
+					}}
 				>
-					<path
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth={2}
-						d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-					/>
-				</svg>
-				Delete Instance
-			</button>
+					Delete Instance
+				</button>
+			</div>
 		</div>
 	);
 };

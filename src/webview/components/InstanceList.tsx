@@ -1,4 +1,5 @@
 import { InstanceLists, MultipassInstanceInfo } from '../../multipassService';
+import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
 import { InstanceDetails } from './InstanceDetails';
 import React from 'react';
@@ -116,7 +117,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	if (active.length === 0 && deleted.length === 0) {
 		return (
 			<div style={{ padding: '20px', textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
-				<p style={{ marginBottom: '20px', fontSize: '14px' }}>No instances found.</p>
+				<p style={{
+					marginBottom: '20px',
+					fontSize: '14px',
+					fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+				}}>No instances found.</p>
 				<button
 					onClick={onCreateInstance}
 					style={{
@@ -127,13 +132,14 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						cursor: 'pointer',
 						fontSize: '14px',
 						fontWeight: '500',
-						fontFamily: 'var(--vscode-font-family)',
+						fontFamily: 'Ubuntu, Inter, system-ui, -apple-system, sans-serif',
 						display: 'inline-flex',
 						alignItems: 'center',
 						gap: '10px',
 						transition: 'all 0.2s ease',
 						boxShadow: '0 2px 8px rgba(14, 132, 32, 0.3)',
 						letterSpacing: '0.3px',
+						borderRadius: '4px',
 					}}
 					onMouseOver={(e) => {
 						e.currentTarget.style.background = '#17aa2f';
@@ -160,206 +166,167 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 
 	const getStateStyle = (state: string) => {
 		const stateLower = state.toLowerCase();
-		const baseStyle = {
-			padding: '2px 8px',
-			borderRadius: '3px',
-			fontSize: '10px',
-			fontWeight: '600' as const,
-			textTransform: 'uppercase' as const,
-			letterSpacing: '0.5px',
+		const baseStyle: React.CSSProperties = {
+			fontSize: '9px',
+			textTransform: 'uppercase',
+			letterSpacing: '1.5px',
+			fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+			fontWeight: 600,
+			opacity: 0.9
 		};
 
 		if (stateLower === 'running') {
-			return { ...baseStyle, background: '#4caf50', color: 'white' };
-		} else if (stateLower === 'stopped') {
-			return { ...baseStyle, background: '#5a5a5a', color: 'white' };
-		} else if (stateLower === 'deleted') {
-			return { ...baseStyle, background: '#9e9e9e', color: '#e0e0e0' };
-		} else if (stateLower === 'stopping' || stateLower === 'starting' || stateLower === 'creating' || stateLower === 'unknown' || stateLower === 'recovering' || stateLower === 'deleting') {
-			// Blinking badge for intermediate/unknown states
-			return {
-				...baseStyle,
-				background: '#ff9800',
-				color: 'white',
-				animation: 'blink 1s ease-in-out infinite'
-			};
-		} else {
-			// Other transition states
-			return {
-				...baseStyle,
-				background: '#ff9800',
-				color: 'white',
-				animation: 'pulse 1.5s ease-in-out infinite'
-			};
+			return { ...baseStyle, color: '#10b981' };
 		}
+		if (stateLower === 'deleted') {
+			return { ...baseStyle, color: '#6b7280', opacity: 0.6 };
+		}
+		if (stateLower === 'stopped') {
+			return { ...baseStyle, color: '#525252' };
+		}
+		// Transitional / unknown -> amber
+		return { ...baseStyle, color: '#f59e0b', animation: 'pulse 1.5s ease-in-out infinite' };
 	};
 
 	return (
-		<div style={{ padding: '10px' }}>
-			<ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
-				{/* Active Instances */}
+		<div style={{ padding: '12px 16px 32px' }}>
+			{/* Active header */}
+			{active.length > 0 && (
+				<div style={{
+					fontSize: '9px',
+					textTransform: 'uppercase',
+					letterSpacing: '1.2px',
+					color: 'var(--vscode-descriptionForeground)',
+					marginBottom: '18px',
+					fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+					opacity: 0.7
+				}}>Active</div>
+			)}
+			<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
 				{active.map(instance => {
 					const isExpanded = expandedInstance === instance.name;
 					const isRunning = instance.state.toLowerCase() === 'running';
+					const showBorder = !(isExpanded && isRunning);
 
 					return (
-						<li
-							key={instance.name}
-							style={{
-								margin: '6px 0',
-								background: 'var(--vscode-editor-background)',
-								border: '1px solid var(--vscode-panel-border)',
-								borderRadius: '4px',
-								overflow: 'hidden',
-							}}
-						>
-							{/* Main instance row - clickable */}
+						<li key={instance.name} style={{ margin: 0 }}>
 							<div
 								onClick={() => isRunning && toggleExpand(instance.name)}
 								onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
 								style={{
-									padding: '10px',
+									padding: '12px 0',
+									borderBottom: showBorder ? '1px solid rgba(127,127,127,0.25)' : 'none',
 									cursor: isRunning ? 'pointer' : 'default',
-									background: 'var(--vscode-editor-background)',
-									transition: 'background 0.1s ease',
+									transition: 'border-color 0.15s ease',
 								}}
 								onMouseOver={(e) => {
-									if (isRunning) {
-										e.currentTarget.style.background = 'var(--vscode-list-hoverBackground)';
+									if (isRunning && showBorder) {
+										e.currentTarget.style.borderBottom = '1px solid rgba(127,127,127,0.4)';
 									}
 								}}
 								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-editor-background)';
+									if (showBorder) {
+										e.currentTarget.style.borderBottom = '1px solid rgba(127,127,127,0.25)';
+									}
 								}}
 							>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-										{isRunning && (
-											<span style={{
-												fontSize: '10px',
-												color: 'var(--vscode-descriptionForeground)',
-												transition: 'transform 0.2s ease',
-												transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-												display: 'inline-block',
-											}}>
-												▶
-											</span>
-										)}
-										<span style={{ fontWeight: '600', color: 'var(--vscode-editor-foreground)', fontSize: '13px' }}>
-											{instance.name}
-										</span>
+								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+										<div style={{
+											fontSize: '14px',
+											fontWeight: 300,
+											color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
+											fontFamily: getDistributionFont(instance.release)
+										}}>{instance.name}</div>
 									</div>
-									<span style={getStateStyle(instance.state)}>
-										{instance.state}
-									</span>
+									<span style={getStateStyle(instance.state)}>{instance.state}</span>
 								</div>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', gap: '8px' }}>
-									<div style={{ color: 'var(--vscode-descriptionForeground)', flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
-										{/* Ubuntu icon from media/distros folder - use dark icon for stopped/suspended */}
+								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#525252' }}>
+									{/* Bottom-left: OS icon + release */}
+									<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
 										{(ubuntuIconUri || ubuntuDarkIconUri) && (
 											<img
-												src={instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended' ? ubuntuDarkIconUri : ubuntuIconUri}
+												src={(instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended') ? ubuntuDarkIconUri : ubuntuIconUri}
 												alt="Ubuntu"
-												style={{
-													width: '12px',
-													height: '12px',
-													opacity: 0.8
-												}}
+												style={{ width: '12px', height: '12px', opacity: 0.85 }}
 											/>
 										)}
-										<span style={{ fontSize: '10px' }}>{instance.release.replace(/^Ubuntu\s*/i, '')}</span>
+										<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+											{instance.release.replace(/^Ubuntu\s*/i, '')}
+										</div>
 									</div>
-									<div style={{
-										color: 'var(--vscode-descriptionForeground)',
-										fontFamily: 'var(--vscode-editor-font-family)',
-										flex: 1,
-										textAlign: 'right',
-										minHeight: '14px'
-									}}>
-										{instance.state.toLowerCase() === 'stopped' ? '' : (instance.ipv4 || 'No IP')}
+
+									{/* Centered arrow */}
+									<div style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>
+										{isRunning && (
+											<div style={{
+												fontSize: '11px',
+												color: '#6b7280',
+												transition: 'transform 0.2s ease',
+												transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+											}}>↓</div>
+										)}
+									</div>
+
+									{/* Bottom-right IP */}
+									<div style={{ fontFamily: getMonoFont(), fontSize: '11px', color: '#4b5563' }}>
+										{isRunning && instance.ipv4 ? instance.ipv4 : ''}
 									</div>
 								</div>
-							</div>							{/* Expanded details section */}
+							</div>
+
 							{isExpanded && isRunning && (
 								<div style={{
-									paddingTop: '0',
-									paddingBottom: '12px',
-									paddingLeft: '10px',
-									paddingRight: '10px',
-									background: 'var(--vscode-sideBar-background)',
+									padding: '0',
+									background: 'rgba(0,0,0,0.05)'
 								}}>
 									{loadingInfo ? (
-										<div style={{
-											textAlign: 'center',
-											padding: '20px',
-											color: 'var(--vscode-descriptionForeground)',
-											fontSize: '11px'
-										}}>
-											Loading details...
-										</div>
+										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-descriptionForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Loading details...</div>
 									) : instanceInfo ? (
-										<InstanceDetails
-											info={instanceInfo}
-											onDelete={onDeleteInstance}
-										/>
+										<InstanceDetails info={instanceInfo} onDelete={onDeleteInstance} />
 									) : (
-										<div style={{
-											textAlign: 'center',
-											padding: '20px',
-											color: 'var(--vscode-errorForeground)',
-											fontSize: '11px'
-										}}>
-											Failed to load instance details
-										</div>
+										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-errorForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Failed to load instance details</div>
 									)}
 								</div>
 							)}
 						</li>
 					);
 				})}
+			</ul>
 
-				{/* Separator for Deleted Instances */}
-				{deleted.length > 0 && (
-					<>
-						<li style={{ display: 'flex', alignItems: 'center', margin: '16px 0', gap: '12px', listStyle: 'none' }}>
-							<div style={{ flex: 1, height: '1px', background: 'var(--vscode-panel-border)' }}></div>
-							<span style={{ fontSize: '10px', fontWeight: '600', color: 'var(--vscode-descriptionForeground)', letterSpacing: '0.5px' }}>
-								DELETED INSTANCES
-							</span>
-							<div style={{ flex: 1, height: '1px', background: 'var(--vscode-panel-border)' }}></div>
-						</li>
-
-						{/* Deleted Instances */}
+			{/* Deleted Section */}
+			{deleted.length > 0 && (
+				<div style={{ marginTop: '40px' }}>
+					<div style={{
+						fontSize: '9px',
+						textTransform: 'uppercase',
+						letterSpacing: '1.2px',
+						color: 'var(--vscode-descriptionForeground)',
+						marginBottom: '14px',
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+						opacity: 0.55
+					}}>Deleted</div>
+					<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
 						{deleted.map(instance => (
-							<li
-								key={instance.name}
-								onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
-								style={{
-									padding: '10px',
-									margin: '6px 0',
-									opacity: 0.7,
-									background: 'var(--vscode-sideBar-background)',
-									border: '1px solid var(--vscode-panel-border)',
-									borderRadius: '4px',
-									cursor: 'default',
-								}}
-							>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-									<span style={{ fontWeight: '600', color: 'var(--vscode-disabledForeground)', fontSize: '13px' }}>
-										{instance.name}
-									</span>
-									<span style={getStateStyle('deleted')}>
-										Deleted
-									</span>
-								</div>
-								<div style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '10px' }}>
-									{instance.release.replace(/^Ubuntu\s*/i, '')}
+							<li key={instance.name} style={{ padding: '10px 0', borderBottom: '1px solid rgba(127,127,127,0.15)' }}>
+								<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+									<div style={{ fontSize: '14px', fontWeight: 300, color: 'var(--vscode-descriptionForeground)', fontFamily: getDistributionFont(instance.release), opacity: 0.6 }}>{instance.name}</div>
+									<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+										{(ubuntuIconUri || ubuntuDarkIconUri) && (
+											<img
+												src={ubuntuDarkIconUri}
+												alt="Ubuntu"
+												style={{ width: '12px', height: '12px', opacity: 0.6 }}
+											/>
+										)}
+										<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>{instance.release.replace(/^Ubuntu\s*/i, '')}</div>
+									</div>
 								</div>
 							</li>
 						))}
-					</>
-				)}
-			</ul>
+					</ul>
+				</div>
+			)}
 
 			{/* Context Menu */}
 			{contextMenu && (
@@ -375,8 +342,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						padding: '4px 0',
 						minWidth: '150px',
 						zIndex: 1000,
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
 					}}
-					onClick={(e) => e.stopPropagation()}
+					onClick={(e: React.MouseEvent) => e.stopPropagation()}
 				>
 					{contextMenu.state.toLowerCase() === 'running' && (
 						<>
@@ -459,7 +427,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							</div>
 						</>
 					)}
-					{contextMenu.state.toLowerCase() === 'stopped' && (
+						{contextMenu.state.toLowerCase() === 'stopped' && (
 						<>
 							<div
 								onClick={() => {
@@ -515,7 +483,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							</div>
 						</>
 					)}
-					{contextMenu.state.toLowerCase() === 'suspended' && (
+						{contextMenu.state.toLowerCase() === 'suspended' && (
 						<>
 							<div
 								onClick={() => {
@@ -571,7 +539,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							</div>
 						</>
 					)}
-					{contextMenu.state.toLowerCase() === 'deleted' && (
+						{contextMenu.state.toLowerCase() === 'deleted' && (
 						<>
 							<div
 								onClick={() => {
@@ -654,7 +622,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							</div>
 						</>
 					)}
-					{contextMenu.state.toLowerCase() !== 'deleted' && (
+						{contextMenu.state.toLowerCase() !== 'deleted' && (
 						<div
 							onClick={() => {
 								onDeleteInstance(contextMenu.instanceName);
