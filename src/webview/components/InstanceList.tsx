@@ -45,6 +45,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const [expandedInstance, setExpandedInstance] = React.useState<string | null>(null);
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
 	const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; instanceName: string; state: string } | null>(null);
+	const [copiedInstance, setCopiedInstance] = React.useState<string | null>(null);
 
 	// Use the info from props
 	const instanceInfo = propInstanceInfo;
@@ -193,6 +194,20 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return name.substring(0, maxLength) + ' . . . ';
 	};
 
+	// Order active instances: running -> suspended -> stopped -> others
+	const orderPriority: Record<string, number> = {
+		running: 0,
+		suspended: 1,
+		stopped: 2,
+	};
+	const orderedActive = [...active].sort((a, b) => {
+		const pa = orderPriority[a.state.toLowerCase()] ?? 3;
+		const pb = orderPriority[b.state.toLowerCase()] ?? 3;
+		if (pa !== pb) return pa - pb;
+		// Stable tie-breaker by name
+		return a.name.localeCompare(b.name);
+	});
+
 	return (
 		<div style={{ padding: '12px 16px 32px' }}>
 			{/* Active header */}
@@ -208,7 +223,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				}}>Active</div>
 			)}
 			<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-				{active.map(instance => {
+				{orderedActive.map(instance => {
 					const isExpanded = expandedInstance === instance.name;
 					const isRunning = instance.state.toLowerCase() === 'running';
 					const showBorder = !(isExpanded && isRunning);
@@ -235,54 +250,142 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									}
 								}}
 							>
-								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+								{(instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended') ? (
+									<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 										<div
 											style={{
 												fontSize: '14px',
 												fontWeight: 300,
-												color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
+												color: 'var(--vscode-descriptionForeground)',
 												fontFamily: getDistributionFont(instance.release)
 											}}
 											title={instance.name}
 										>
 											{truncateName(instance.name)}
 										</div>
-									</div>
-									<span style={getStateStyle(instance.state)}>{instance.state}</span>
-								</div>
-								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#525252' }}>
-									{/* Bottom-left: OS icon + release */}
-									<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-										{(ubuntuIconUri || ubuntuDarkIconUri) && (
-											<img
-												src={(instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended') ? ubuntuDarkIconUri : ubuntuIconUri}
-												alt="Ubuntu"
-												style={{ width: '12px', height: '12px', opacity: 0.85 }}
-											/>
-										)}
-										<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
-											{instance.release.replace(/^Ubuntu\s*/i, '')}
+										<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+											<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+												{(ubuntuIconUri || ubuntuDarkIconUri) && (
+													<img
+														src={ubuntuDarkIconUri}
+														alt="Ubuntu"
+														style={{ width: '12px', height: '12px', opacity: 0.85 }}
+													/>
+												)}
+												<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+													{instance.release.replace(/^Ubuntu\s*/i, '')}
+												</div>
+											</div>
+											<span style={getStateStyle(instance.state)}>{instance.state}</span>
 										</div>
 									</div>
-
-									{/* Centered arrow */}
-									<div style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>
-										{isRunning && (
-											<div style={{
-												fontSize: '11px',
-												color: '#6b7280',
-												transition: 'transform 0.2s ease',
-												transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-											}}>↓</div>
-										)}
-									</div>
-
-									{/* Bottom-right IP */}
-									<div style={{ fontFamily: getMonoFont(), fontSize: '11px', color: '#4b5563' }}>
-										{isRunning && instance.ipv4 ? instance.ipv4 : ''}
-									</div>
-								</div>
+								) : (
+									<>
+										<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+											<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+												<div
+													style={{
+														fontSize: '14px',
+														fontWeight: 300,
+														color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
+														fontFamily: getDistributionFont(instance.release)
+													}}
+													title={instance.name}
+												>
+													{truncateName(instance.name)}
+												</div>
+											</div>
+											<span style={getStateStyle(instance.state)}>{instance.state}</span>
+										</div>
+										<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#525252' }}>
+											<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+												{(ubuntuIconUri || ubuntuDarkIconUri) && (
+													<img
+														src={ubuntuIconUri}
+														alt="Ubuntu"
+														style={{ width: '12px', height: '12px', opacity: 0.85 }}
+													/>
+												)}
+												<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
+													{instance.release.replace(/^Ubuntu\s*/i, '')}
+												</div>
+											</div>
+											<div style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>
+												{isRunning && (
+													<div style={{
+														fontSize: '11px',
+														color: '#6b7280',
+														transition: 'transform 0.2s ease',
+														transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+													}}>↓</div>
+												)}
+											</div>
+											<div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', zIndex: 10 }}>
+												{isRunning && instance.ipv4 && (
+													<>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																navigator.clipboard.writeText(instance.ipv4);
+																setCopiedInstance(instance.name);
+																setTimeout(() => setCopiedInstance(null), 2000);
+															}}
+															style={{
+																background: 'transparent',
+																border: 'none',
+																cursor: 'pointer',
+																padding: '0',
+																display: 'flex',
+																alignItems: 'center',
+																color: '#6b7280',
+																opacity: 0.7,
+																transition: 'opacity 0.2s ease',
+																width: '12px',
+																height: '12px',
+																position: 'relative'
+															}}
+															onMouseOver={(e) => {
+																e.currentTarget.style.opacity = '1';
+															}}
+															onMouseOut={(e) => {
+																e.currentTarget.style.opacity = '0.7';
+															}}
+															title="Copy IP address"
+														>
+															<svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+																<path d="M7.5 3H14.6C16.8402 3 17.9603 3 18.816 3.43597C19.5686 3.81947 20.1805 4.43139 20.564 5.18404C21 6.03969 21 7.15979 21 9.4V16.5M6.2 21H14.3C15.4201 21 15.9802 21 16.408 20.782C16.7843 20.5903 17.0903 20.2843 17.282 19.908C17.5 19.4802 17.5 18.9201 17.5 17.8V9.7C17.5 8.57989 17.5 8.01984 17.282 7.59202C17.0903 7.21569 16.7843 6.90973 16.408 6.71799C15.9802 6.5 15.4201 6.5 14.3 6.5H6.2C5.0799 6.5 4.51984 6.5 4.09202 6.71799C3.71569 6.90973 3.40973 7.21569 3.21799 7.59202C3 8.01984 3 8.57989 3 9.7V17.8C3 18.9201 3 19.4802 3.21799 19.908C3.40973 20.2843 3.71569 20.5903 4.09202 20.782C4.51984 21 5.0799 21 6.2 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+															</svg>
+															{copiedInstance === instance.name && (
+																<div style={{
+																	position: 'absolute',
+																	top: '-28px',
+																	left: '50%',
+																	transform: 'translateX(-50%)',
+																	background: 'var(--vscode-notifications-background)',
+																	color: 'var(--vscode-notifications-foreground)',
+																	border: '1px solid var(--vscode-notifications-border)',
+																	padding: '4px 8px',
+																	borderRadius: '3px',
+																	fontSize: '10px',
+																	whiteSpace: 'nowrap',
+																	fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+																	boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+																	zIndex: 1000,
+																	pointerEvents: 'none'
+																}}>
+																	Copied!
+																</div>
+															)}
+														</button>
+														<div style={{ fontFamily: getMonoFont(), fontSize: '11px', color: '#4b5563' }}>
+															{instance.ipv4}
+														</div>
+													</>
+												)}
+											</div>
+										</div>
+									</>
+								)}
 							</div>
 
 							{isExpanded && isRunning && (
@@ -319,7 +422,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 					<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
 						{deleted.map(instance => (
 							<li key={instance.name} style={{ padding: '10px 0', borderBottom: '1px solid rgba(127,127,127,0.15)' }}>
-								<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+								<div
+									style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+									onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
+								>
 									<div
 										style={{ fontSize: '14px', fontWeight: 300, color: 'var(--vscode-descriptionForeground)', fontFamily: getDistributionFont(instance.release), opacity: 0.6 }}
 										title={instance.name}
@@ -493,7 +599,6 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
 								}}
 							>
-								<span>🖥️</span>
 								Start and Shell
 							</div>
 						</>
@@ -549,7 +654,6 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
 								}}
 							>
-								<span>🖥️</span>
 								Start and Shell
 							</div>
 						</>
@@ -579,7 +683,6 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
 								}}
 							>
-								<span>♻️</span>
 								Recover Instance
 							</div>
 							<div
@@ -605,7 +708,6 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
 								}}
 							>
-								<span>🖥️</span>
 								Recover and Shell
 							</div>
 							<div
@@ -632,7 +734,6 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									e.currentTarget.style.background = 'transparent';
 								}}
 							>
-								<span>⚠️</span>
 								Purge Instance
 							</div>
 						</>
@@ -662,7 +763,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 								e.currentTarget.style.background = 'transparent';
 							}}
 						>
-							<span>🗑</span>
+
 							Delete Instance
 						</div>
 					)}
