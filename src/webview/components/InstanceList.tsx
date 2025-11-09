@@ -188,6 +188,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return { ...baseStyle, color: '#f59e0b', animation: 'pulse 1.5s ease-in-out infinite' };
 	};
 
+	const truncateName = (name: string, maxLength: number = 12): string => {
+		if (name.length <= maxLength) return name;
+		return name.substring(0, maxLength) + ' . . . ';
+	};
+
 	return (
 		<div style={{ padding: '12px 16px 32px' }}>
 			{/* Active header */}
@@ -232,12 +237,17 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 							>
 								<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
 									<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-										<div style={{
-											fontSize: '14px',
-											fontWeight: 300,
-											color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
-											fontFamily: getDistributionFont(instance.release)
-										}}>{instance.name}</div>
+										<div
+											style={{
+												fontSize: '14px',
+												fontWeight: 300,
+												color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
+												fontFamily: getDistributionFont(instance.release)
+											}}
+											title={instance.name}
+										>
+											{truncateName(instance.name)}
+										</div>
 									</div>
 									<span style={getStateStyle(instance.state)}>{instance.state}</span>
 								</div>
@@ -310,7 +320,12 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 						{deleted.map(instance => (
 							<li key={instance.name} style={{ padding: '10px 0', borderBottom: '1px solid rgba(127,127,127,0.15)' }}>
 								<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-									<div style={{ fontSize: '14px', fontWeight: 300, color: 'var(--vscode-descriptionForeground)', fontFamily: getDistributionFont(instance.release), opacity: 0.6 }}>{instance.name}</div>
+									<div
+										style={{ fontSize: '14px', fontWeight: 300, color: 'var(--vscode-descriptionForeground)', fontFamily: getDistributionFont(instance.release), opacity: 0.6 }}
+										title={instance.name}
+									>
+										{truncateName(instance.name)}
+									</div>
 									<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
 										{(ubuntuIconUri || ubuntuDarkIconUri) && (
 											<img
