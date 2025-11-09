@@ -1,5 +1,9 @@
 # Multipass Run
 
+[![Tests](https://github.com/geoffreynyaga/multipass-run/actions/workflows/test.yml/badge.svg)](https://github.com/geoffreynyaga/multipass-run/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/visual-studio-marketplace/v/GeoffreyNyaga.multipass-run)](https://marketplace.visualstudio.com/items?itemName=GeoffreyNyaga.multipass-run)
+
 A Visual Studio Code extension for managing Multipass virtual machine instances directly from the editor interface.
 
 ## Overview
