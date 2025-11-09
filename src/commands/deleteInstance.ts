@@ -1,5 +1,5 @@
+import { MULTIPASS_PATHS } from '../utils/constants';
 import { exec } from 'child_process';
-import { MULTIPASS_PATHS } from './constants';
 
 export async function deleteInstance(instanceName: string, purge: boolean = false): Promise<{ success: boolean; error?: string }> {
 	return new Promise((resolve) => {

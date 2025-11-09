@@ -257,6 +257,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' permanently deleted`);
 						// Close associated terminals
 						this.closeInstanceTerminals(message.instanceName);
+						// Remove SSH config if it exists
+						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
@@ -313,6 +315,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
 						// Close associated terminals
 						this.closeInstanceTerminals(message.instanceName);
+						// Remove SSH config if it exists
+						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
@@ -328,6 +332,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	public async createDefaultInstance(): Promise<void> {
 		let instanceName: string | undefined;
 		let imageRelease: string | undefined;
+		let enableSSH = false;
 
 		// createDefaultInstance now handles name prompt, image selection, and progress feedback
 		const result = await createDefaultInstance(undefined, {
@@ -337,13 +342,18 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			onImageSelected: (imageName, release) => {
 				imageRelease = release;
 			},
+			onSSHEnabled: (enabled) => {
+				enableSSH = enabled;
+			},
 			onLaunchStarted: async () => {
-				// Optimistically add the instance to the list with "Downloading Image" state
-				if (this._view && instanceName) {
+				// Check if image is already downloaded to show appropriate state
+				if (this._view && instanceName && imageRelease) {
 					const currentLists = await MultipassService.getInstanceLists();
+					const isImageCached = await MultipassService.isImageAlreadyDownloaded(imageRelease);
+
 					const newInstance = {
 						name: instanceName,
-						state: 'Downloading Image',
+						state: isImageCached ? 'Creating' : 'Downloading Image',
 						ipv4: '',
 						release: imageRelease ? `Ubuntu ${imageRelease}` : 'Ubuntu'
 					};
@@ -357,10 +367,25 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		});
 
 		if (result) {
-			// Instance was created successfully, poll for status
-			await this.pollInstanceStatus(result);
+			// Instance was created successfully
+			console.log('Instance created, checking SSH setup...', result);
+
+			// If SSH is enabled, set it up (don't wait for polling)
+			if (result.enableSSH) {
+				console.log(`SSH is enabled for ${result.instanceName}, setting up...`);
+				// Run SSH setup in background while polling happens
+				this.setupSSHConnection(result.instanceName).catch(err => {
+					console.error('SSH setup failed:', err);
+				});
+			} else {
+				console.log('SSH is not enabled for this instance');
+			}
+
+			// Poll for status in parallel (don't block SSH setup)
+			this.pollInstanceStatus(result.instanceName);
 		} else {
 			// Creation was cancelled or failed, just refresh
+			console.log('Instance creation was cancelled or failed');
 			await this.refresh();
 		}
 	}
@@ -368,12 +393,14 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	public async createDetailedInstance(): Promise<void> {
 		const config = await createDetailedInstance();
 		if (config) {
-			// Optimistically add the instance to the list with "Downloading Image" state
+			// Check if image is already downloaded to show appropriate state
 			if (this._view) {
 				const currentLists = await MultipassService.getInstanceLists();
+				const isImageCached = await MultipassService.isImageAlreadyDownloaded(config.imageRelease);
+
 				const newInstance = {
 					name: config.name,
-					state: 'Downloading Image',
+					state: isImageCached ? 'Creating' : 'Downloading Image',
 					ipv4: '',
 					release: `Ubuntu ${config.imageRelease}`
 				};
@@ -406,8 +433,21 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			);
 
 			if (result.success) {
-				// Start polling for the instance status
-				await this.pollInstanceStatus(config.name);
+				console.log('Detailed instance created, checking SSH setup...', config);
+
+				// If SSH is enabled, set it up (don't wait for polling)
+				if (config.enableSSH) {
+					console.log(`SSH is enabled for ${config.name}, setting up...`);
+					// Run SSH setup in background while polling happens
+					this.setupSSHConnection(config.name).catch(err => {
+						console.error('SSH setup failed:', err);
+					});
+				} else {
+					console.log('SSH is not enabled for this instance');
+				}
+
+				// Start polling for the instance status in parallel (don't block SSH setup)
+				this.pollInstanceStatus(config.name);
 			} else {
 				// If creation failed, refresh to remove the optimistic instance
 				vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
@@ -466,6 +506,98 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				await this.refresh();
 			}
 		}, 2000); // Poll every 2 seconds
+	}
+
+	private async setupSSHConnection(instanceName: string): Promise<void> {
+		try {
+			// Check if Remote-SSH extension is installed
+			const remoteSSHExtension = vscode.extensions.getExtension('ms-vscode-remote.remote-ssh');
+			if (!remoteSSHExtension) {
+				const install = await vscode.window.showWarningMessage(
+					'Remote-SSH extension is not installed. Would you like to install it?',
+					'Install',
+					'Cancel'
+				);
+				if (install === 'Install') {
+					await vscode.commands.executeCommand('workbench.extensions.installExtension', 'ms-vscode-remote.remote-ssh');
+					vscode.window.showInformationMessage('Please reload VS Code after the extension installs, then try again.');
+				}
+				return;
+			}
+
+			// Wait for instance to be running and get its IP
+			let attempts = 0;
+			const maxAttempts = 30;
+			let instanceIP = '';
+
+			vscode.window.showInformationMessage(`Waiting for instance '${instanceName}' to be ready...`);
+
+			while (attempts < maxAttempts) {
+				const instances = await MultipassService.getInstances();
+				const instance = instances.find(i => i.name === instanceName);
+
+				if (instance && instance.state.toLowerCase() === 'running' && instance.ipv4) {
+					instanceIP = instance.ipv4;
+					break;
+				}
+
+				await new Promise(resolve => setTimeout(resolve, 2000));
+				attempts++;
+			}
+
+			if (!instanceIP) {
+				vscode.window.showErrorMessage(
+					`Failed to setup SSH: Instance '${instanceName}' did not get an IP address`
+				);
+				return;
+			}
+
+			// Setup SSH configuration with progress
+			const sshResult = await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: `Setting up SSH for '${instanceName}'`,
+					cancellable: false
+				},
+				async (progress) => {
+					progress.report({ message: `Configuring SSH at ${instanceIP}...` });
+					return await MultipassService.setupSSHForInstance(instanceName, instanceIP);
+				}
+			);
+
+			if (sshResult.success) {
+				const sshKeyPath = require('path').join(
+					require('os').homedir(),
+					'.ssh',
+					'multipass_id_rsa'
+				);
+				const sshCommand = `ssh ubuntu@${instanceIP} -i ${sshKeyPath}`;
+				const sshHostName = `multipass-${instanceName}`;
+
+				// Show success message with options
+				const selection = await vscode.window.showInformationMessage(
+					`SSH configured successfully for '${instanceName}'!\n\nYou can now connect using Remote-SSH with host: ${sshHostName}`,
+					{ modal: true },
+					'Connect Now',
+					'Show in Remote-SSH'
+				);
+
+				if (selection === 'Connect Now') {
+					await MultipassService.connectToInstanceViaSSH(instanceName);
+				} else if (selection === 'Show in Remote-SSH') {
+					// Open Remote-SSH extension view
+					await vscode.commands.executeCommand('opensshremotes.focus');
+				}
+			} else {
+				vscode.window.showErrorMessage(
+					`Failed to setup SSH for '${instanceName}': ${sshResult.error}`
+				);
+			}
+		} catch (error: any) {
+			vscode.window.showErrorMessage(
+				`Error setting up SSH: ${error.message}`
+			);
+		}
 	}
 
 	public async refresh(): Promise<void> {
@@ -564,6 +696,13 @@ export function activate(context: vscode.ExtensionContext) {
 						break;
 				}
 			}
+		})
+	);
+
+	// Register setup SSH command
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.setupSSH', async () => {
+			await MultipassService.setupSSH();
 		})
 	);
 }

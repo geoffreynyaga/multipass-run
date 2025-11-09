@@ -1,29 +1,42 @@
 import * as vscode from 'vscode';
 
 import { findImages } from '../findImages';
+import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
+import { promptSSHOption } from './promptSSHOption';
 
 export interface CreateInstanceCallbacks {
 	onInstanceNameSelected?: (name: string) => void;
 	onImageSelected?: (imageName: string, imageRelease: string) => void;
 	onLaunchStarted?: () => void;
+	onSSHEnabled?: (enabled: boolean) => void;
+}
+
+export interface CreateInstanceResult {
+	instanceName: string;
+	enableSSH: boolean;
 }
 
 export async function createDefaultInstance(
 	instanceName?: string,
 	callbacks?: CreateInstanceCallbacks
-): Promise<string | undefined> {
+): Promise<CreateInstanceResult | undefined> {
 	// If instance name not provided, prompt user for it
 	if (!instanceName) {
 		instanceName = await vscode.window.showInputBox({
 			prompt: 'Enter a name for the new instance',
 			placeHolder: 'my-instance',
-			validateInput: (value) => {
+			validateInput: async (value) => {
 				if (!value || value.trim() === '') {
 					return 'Instance name cannot be empty';
 				}
 				if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
 					return 'Instance name can only contain letters, numbers, hyphens, and underscores';
+				}
+				// Check if instance name already exists
+				const exists = await instanceNameExists(value);
+				if (exists) {
+					return `Instance '${value}' already exists. Please choose a different name.`;
 				}
 				return null;
 			}
@@ -119,6 +132,15 @@ export async function createDefaultInstance(
 		callbacks?.onImageSelected?.(imageKey, selectedImageData.release);
 	}
 
+	// Ask if user wants to enable Remote SSH connection
+	const enableRemoteSSH = await promptSSHOption();
+
+	if (enableRemoteSSH === undefined) {
+		return undefined; // User cancelled
+	}
+
+	callbacks?.onSSHEnabled?.(enableRemoteSSH);
+
 	// Notify that launch is starting
 	callbacks?.onLaunchStarted?.();
 
@@ -173,5 +195,8 @@ export async function createDefaultInstance(
 		vscode.window.showInformationMessage(`Instance '${instanceName}' created successfully!`);
 	}
 
-	return instanceName;
+	return {
+		instanceName,
+		enableSSH: enableRemoteSSH
+	};
 }

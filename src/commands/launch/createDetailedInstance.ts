@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 
 import { findImages } from '../findImages';
+import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
+import { promptSSHOption } from './promptSSHOption';
 
 export interface DetailedInstanceConfig {
 	name: string;
@@ -10,6 +12,7 @@ export interface DetailedInstanceConfig {
 	cpus: string;
 	memory: string;
 	disk: string;
+	enableSSH: boolean;
 }
 
 export async function createDetailedInstance(): Promise<DetailedInstanceConfig | undefined> {
@@ -17,12 +20,17 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 	const instanceName = await vscode.window.showInputBox({
 		prompt: 'Step 1/5: Enter instance name',
 		placeHolder: 'my-instance',
-		validateInput: (value) => {
+		validateInput: async (value) => {
 			if (!value || value.trim() === '') {
 				return 'Instance name cannot be empty';
 			}
 			if (!/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(value)) {
 				return 'Name must start with a letter and end with alphanumeric character';
+			}
+			// Check if instance name already exists
+			const exists = await instanceNameExists(value);
+			if (exists) {
+				return `Instance '${value}' already exists. Please choose a different name.`;
 			}
 			return null;
 		}
@@ -188,9 +196,17 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		return undefined; // User cancelled
 	}
 
+	// Ask if user wants to enable Remote SSH connection
+	const enableRemoteSSH = await promptSSHOption();
+
+	if (enableRemoteSSH === undefined) {
+		return undefined; // User cancelled
+	}
+
 	// Show confirmation
+	const sshInfo = enableRemoteSSH ? '\nRemote SSH: Enabled' : '\nRemote SSH: Disabled';
 	const confirm = await vscode.window.showInformationMessage(
-		`Create instance with:\nName: ${instanceName}\nImage: Ubuntu ${selectedImageData.release}\nCPUs: ${cpusInput}\nMemory: ${memoryInput}\nDisk: ${diskInput}`,
+		`Create instance with:\nName: ${instanceName}\nImage: Ubuntu ${selectedImageData.release}\nCPUs: ${cpusInput}\nMemory: ${memoryInput}\nDisk: ${diskInput}${sshInfo}`,
 		{ modal: true },
 		'Create'
 	);
@@ -206,6 +222,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		imageRelease: selectedImageData.release,
 		cpus: cpusInput,
 		memory: memoryInput,
-		disk: diskInput
+		disk: diskInput,
+		enableSSH: enableRemoteSSH
 	};
 }

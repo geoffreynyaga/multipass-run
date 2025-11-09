@@ -1,4 +1,4 @@
-import { MULTIPASS_PATHS } from './constants';
+import { MULTIPASS_PATHS } from '../utils/constants';
 import { exec } from 'child_process';
 
 export async function suspendInstance(instanceName: string): Promise<{ success: boolean; error?: string }> {

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import { exec, spawn } from 'child_process';
 
-import { MULTIPASS_PATHS } from '../constants';
+import { MULTIPASS_PATHS } from '../../utils/constants';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
