@@ -1,0 +1,56 @@
+name: macOS Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test on macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Clean output directory
+        run: rm -rf out dist
+
+      - name: Run linter
+        run: pnpm run lint
+
+      - name: Compile extension
+        run: pnpm run compile
+
+      - name: Compile tests
+        run: pnpm run compile-tests
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos
+          path: |
+            out/
+            .vscode-test/
