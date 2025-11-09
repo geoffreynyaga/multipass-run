@@ -71,7 +71,7 @@ export async function createDefaultInstance(
 		.sort((a, b) => b[0].localeCompare(a[0])); // Newest first
 
 	for (const [key, image] of ltsImages) {
-		const label = `Ubuntu ${image.release}`;
+		const label = `${image.os} ${image.release}`;
 		const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
 		const detail = `Version: ${image.version}`;
 
@@ -98,7 +98,7 @@ export async function createDefaultInstance(
 		});
 
 		for (const [key, image] of otherImages) {
-			const label = `Ubuntu ${image.release}`;
+			const label = `${image.os} ${image.release}`;
 			const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
 			const detail = `Version: ${image.version}${image.remote ? ` • Remote: ${image.remote}` : ''}`;
 
@@ -113,7 +113,7 @@ export async function createDefaultInstance(
 
 	// Show image selection
 	const selectedImage = await vscode.window.showQuickPick(imageItems, {
-		placeHolder: 'Select an Ubuntu image',
+		placeHolder: 'Select an image',
 		title: 'Choose Image for Instance',
 		matchOnDescription: true,
 		matchOnDetail: true
@@ -127,9 +127,14 @@ export async function createDefaultInstance(
 	const imageKey = selectedImage.imageKey;
 	const selectedImageData = imagesResult.images[imageKey];
 
+	console.log('[createDefaultInstance] Selected image key:', imageKey);
+	console.log('[createDefaultInstance] Selected image data:', selectedImageData);
+
 	// Notify that image was selected
 	if (selectedImageData) {
-		callbacks?.onImageSelected?.(imageKey, selectedImageData.release);
+		// Pass the full display name (OS + release) instead of just release
+		const fullReleaseName = `${selectedImageData.os} ${selectedImageData.release}`;
+		callbacks?.onImageSelected?.(imageKey, fullReleaseName);
 	}
 
 	// Ask if user wants to enable Remote SSH connection

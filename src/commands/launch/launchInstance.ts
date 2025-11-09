@@ -42,6 +42,9 @@ export async function launchInstance(
 
 		command += ` --name ${instanceName}`;
 
+		console.log('[launchInstance] Full command:', command);
+		console.log('[launchInstance] Image:', options.image);
+
 		if (options.cpus) {
 			command += ` --cpus ${options.cpus}`;
 		}

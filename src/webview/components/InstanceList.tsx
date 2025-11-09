@@ -9,6 +9,10 @@ interface InstanceListProps {
 	instanceInfo: MultipassInstanceInfo | null;
 	ubuntuIconUri: string;
 	ubuntuDarkIconUri: string;
+	fedoraIconUri: string;
+	fedoraDarkIconUri: string;
+	debianIconUri: string;
+	debianDarkIconUri: string;
 	onCreateInstance: () => void;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
@@ -28,6 +32,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	instanceInfo: propInstanceInfo,
 	ubuntuIconUri,
 	ubuntuDarkIconUri,
+	fedoraIconUri,
+	fedoraDarkIconUri,
+	debianIconUri,
+	debianDarkIconUri,
 	onCreateInstance,
 	onStartInstance,
 	onStopInstance,
@@ -46,6 +54,37 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
 	const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; instanceName: string; state: string } | null>(null);
 	const [copiedInstance, setCopiedInstance] = React.useState<string | null>(null);
+
+	// Helper function to get the correct icon based on OS
+	const getDistroIcon = (release: string, isDark: boolean): string | null => {
+		const releaseLower = release.toLowerCase();
+		if (releaseLower.includes('fedora')) {
+			return isDark ? fedoraDarkIconUri : fedoraIconUri;
+		} else if (releaseLower.includes('debian')) {
+			return isDark ? debianDarkIconUri : debianIconUri;
+		} else if (releaseLower.includes('ubuntu')) {
+			return isDark ? ubuntuDarkIconUri : ubuntuIconUri;
+		}
+		// Default to Ubuntu for unknown distros
+		return isDark ? ubuntuDarkIconUri : ubuntuIconUri;
+	};
+
+	// Helper function to get distro name from release
+	const getDistroName = (release: string): string => {
+		// Extract the OS name (first word)
+		const parts = release.split(' ');
+		return parts[0] || '';
+	};
+
+	// Helper function to format release without OS name
+	const formatRelease = (release: string): string => {
+		// Remove the OS name (first word) from the release string
+		const parts = release.split(' ');
+		if (parts.length > 1) {
+			return parts.slice(1).join(' ');
+		}
+		return release;
+	};
 
 	// Use the info from props
 	const instanceInfo = propInstanceInfo;
@@ -297,15 +336,15 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 										</div>
 										<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 											<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-												{(ubuntuIconUri || ubuntuDarkIconUri) && (
+												{getDistroIcon(instance.release, true) && (
 													<img
-														src={ubuntuDarkIconUri}
-														alt="Ubuntu"
+														src={getDistroIcon(instance.release, true) || ''}
+														alt={getDistroName(instance.release)}
 														style={{ width: '12px', height: '12px', opacity: 0.85 }}
 													/>
 												)}
 												<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
-													{instance.release.replace(/^Ubuntu\s*/i, '')}
+													{formatRelease(instance.release)}
 												</div>
 											</div>
 											<span style={getStateStyle(instance.state)}>{instance.state}</span>
@@ -331,15 +370,15 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 										</div>
 										<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '10px', color: '#525252' }}>
 											<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-												{(ubuntuIconUri || ubuntuDarkIconUri) && (
+												{getDistroIcon(instance.release, false) && (
 													<img
-														src={ubuntuIconUri}
-														alt="Ubuntu"
+														src={getDistroIcon(instance.release, false) || ''}
+														alt={getDistroName(instance.release)}
 														style={{ width: '12px', height: '12px', opacity: 0.85 }}
 													/>
 												)}
 												<div style={{ fontSize: '11px', color: '#6b7280', fontFamily: 'Inter, system-ui, -apple-system, sans-serif' }}>
-													{instance.release.replace(/^Ubuntu\s*/i, '')}
+													{formatRelease(instance.release)}
 												</div>
 											</div>
 											<div style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>

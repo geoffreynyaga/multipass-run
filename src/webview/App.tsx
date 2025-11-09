@@ -9,6 +9,10 @@ declare global {
 		initialState?: InstanceLists;
 		ubuntuIconUri?: string;
 		ubuntuDarkIconUri?: string;
+		fedoraIconUri?: string;
+		fedoraDarkIconUri?: string;
+		debianIconUri?: string;
+		debianDarkIconUri?: string;
 		extensionIconUri?: string;
 	}
 }
@@ -181,6 +185,10 @@ const App: React.FC = () => {
 			instanceInfo={instanceInfo}
 			ubuntuIconUri={window.ubuntuIconUri || ''}
 			ubuntuDarkIconUri={window.ubuntuDarkIconUri || ''}
+			fedoraIconUri={window.fedoraIconUri || ''}
+			fedoraDarkIconUri={window.fedoraDarkIconUri || ''}
+			debianIconUri={window.debianIconUri || ''}
+			debianDarkIconUri={window.debianDarkIconUri || ''}
 			onCreateInstance={handleCreateInstance}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}

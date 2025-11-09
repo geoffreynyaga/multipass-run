@@ -10,26 +10,49 @@ A Visual Studio Code extension for managing Multipass virtual machine instances 
 
 ## Overview
 
-Multipass Run provides a graphical interface for interacting with Multipass Ubuntu instances. The extension integrates seamlessly with VS Code's sidebar, offering real-time status monitoring and instance lifecycle management without requiring terminal access.
+Multipass Run provides a graphical interface for interacting with Multipass virtual machine instances. The extension integrates seamlessly with VS Code's sidebar, offering real-time status monitoring and instance lifecycle management without requiring terminal access.
 
 ## Features
+
+### Multi-Distribution Support
+
+Create and manage instances from multiple Linux distributions:
+
+- **Ubuntu** - All LTS and current releases (22.04, 24.04, 25.04, etc.)
+- **Fedora** - Latest Fedora releases
+- **Debian** - Current Debian releases (Trixie, etc.)
+- **Ubuntu Core** - IoT and embedded systems
+
+Each distribution is displayed with its own icon for easy identification.
+
+<img src="media/features/distros.png" alt="Distribution Support" width="600">
 
 ### Instance Management
 
 View and manage all Multipass instances from the VS Code sidebar. The extension displays active and deleted instances with distinct visual indicators and state badges.
 
-![Instance Lists](media/features/instance-lists.png)
+<img src="media/features/instance-lists.png" alt="Instance Lists" width="600">
 
 ### Instance Creation
 
-Create new Ubuntu instances using one of two methods:
+Create new instances using one of two methods:
 
 - Quick creation with default configuration
 - Custom creation with user-defined CPU, memory, and disk parameters
 
-![Create Options](media/features/create-options.png)
+<img src="media/features/create-options.png" alt="Create Options" width="500">
 
-![Create Default Instance](media/features/create-default.png)
+<img src="media/features/create-default.png" alt="Create Default Instance" width="500">
+
+### Remote-SSH Integration
+
+Automatically configure VS Code's Remote-SSH extension to connect to your Multipass instances:
+
+- SSH key generation and configuration
+- One-click connection to instances
+- Seamless development environment setup
+
+<img src="media/features/remote-ssh-extension.png" alt="Remote-SSH Integration" width="600">
 
 ### Instance Information
 
@@ -41,7 +64,7 @@ Access detailed system metrics for running instances:
 - Network configuration (IPv4 address)
 - Mount points and snapshot count
 
-![Running Instance Details](media/features/running-details.png)
+<img src="media/features/running-details.png" alt="Running Instance Details" width="600">
 
 ### Instance Operations
 
@@ -59,7 +82,8 @@ The extension follows VS Code's design guidelines and provides:
 - Real-time instance state indicators
 - Automatic status polling for transitional states
 - Theme-aware color scheme support
-- Ubuntu branding assets
+- Distribution-specific icons (Ubuntu, Fedora, Debian)
+- Remote-SSH integration for seamless development
 
 ## Prerequisites
 

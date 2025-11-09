@@ -355,7 +355,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						name: instanceName,
 						state: isImageCached ? 'Creating' : 'Downloading Image',
 						ipv4: '',
-						release: imageRelease ? `Ubuntu ${imageRelease}` : 'Ubuntu'
+						release: imageRelease // Already includes OS name (e.g., "Fedora 43", "Ubuntu 24.04 LTS")
 					};
 					currentLists.active.push(newInstance);
 					this._view.webview.postMessage({
@@ -402,7 +402,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					name: config.name,
 					state: isImageCached ? 'Creating' : 'Downloading Image',
 					ipv4: '',
-					release: `Ubuntu ${config.imageRelease}`
+					release: config.imageRelease // Already includes OS name (e.g., "Fedora 43", "Ubuntu 24.04 LTS")
 				};
 				currentLists.active.push(newInstance);
 				this._view.webview.postMessage({

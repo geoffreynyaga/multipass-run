@@ -7,9 +7,13 @@ export class WebviewContent {
 		// Get the URI for the React webview bundle
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'dist', 'webview.js'));
 
-		// Get URIs for Ubuntu icons
+		// Get URIs for distribution icons
 		const ubuntuIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu.svg'));
 		const ubuntuDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu-dark.svg'));
+		const fedoraIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'fedora.svg'));
+		const fedoraDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'fedora-dark.svg'));
+		const debianIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'debian.svg'));
+		const debianDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'debian-dark.svg'));
 		const extensionIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'icon.svg'));
 
 		// Use a nonce to only allow specific scripts to be run
@@ -44,6 +48,10 @@ export class WebviewContent {
 				window.initialState = ${JSON.stringify(instanceLists)};
 				window.ubuntuIconUri = '${ubuntuIconUri}';
 				window.ubuntuDarkIconUri = '${ubuntuDarkIconUri}';
+				window.fedoraIconUri = '${fedoraIconUri}';
+				window.fedoraDarkIconUri = '${fedoraDarkIconUri}';
+				window.debianIconUri = '${debianIconUri}';
+				window.debianDarkIconUri = '${debianDarkIconUri}';
 				window.extensionIconUri = '${extensionIconUri}';
 			</script>
 			<script nonce="${nonce}" src="${scriptUri}" onerror="console.error('Failed to load script from: ${scriptUri}')"></script>

@@ -61,7 +61,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		.sort((a, b) => b[0].localeCompare(a[0])); // Newest first
 
 	for (const [key, image] of ltsImages) {
-		const label = `Ubuntu ${image.release}`;
+		const label = `${image.os} ${image.release}`;
 		const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
 		const detail = `Version: ${image.version}`;
 
@@ -88,7 +88,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		});
 
 		for (const [key, image] of otherImages) {
-			const label = `Ubuntu ${image.release}`;
+			const label = `${image.os} ${image.release}`;
 			const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
 			const detail = `Version: ${image.version}${image.remote ? ` • Remote: ${image.remote}` : ''}`;
 
@@ -101,7 +101,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		}
 	}	// Show image selection
 	const selectedImage = await vscode.window.showQuickPick(imageItems, {
-		placeHolder: 'Step 2/5: Select an Ubuntu image',
+		placeHolder: 'Step 2/5: Select an image',
 		title: 'Choose Image for Instance',
 		matchOnDescription: true,
 		matchOnDetail: true
@@ -205,8 +205,9 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 
 	// Show confirmation
 	const sshInfo = enableRemoteSSH ? '\nRemote SSH: Enabled' : '\nRemote SSH: Disabled';
+	const fullReleaseName = `${selectedImageData.os} ${selectedImageData.release}`;
 	const confirm = await vscode.window.showInformationMessage(
-		`Create instance with:\nName: ${instanceName}\nImage: Ubuntu ${selectedImageData.release}\nCPUs: ${cpusInput}\nMemory: ${memoryInput}\nDisk: ${diskInput}${sshInfo}`,
+		`Create instance with:\nName: ${instanceName}\nImage: ${fullReleaseName}\nCPUs: ${cpusInput}\nMemory: ${memoryInput}\nDisk: ${diskInput}${sshInfo}`,
 		{ modal: true },
 		'Create'
 	);
@@ -219,7 +220,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 	return {
 		name: instanceName,
 		image: imageKey,
-		imageRelease: selectedImageData.release,
+		imageRelease: `${selectedImageData.os} ${selectedImageData.release}`,
 		cpus: cpusInput,
 		memory: memoryInput,
 		disk: diskInput,
