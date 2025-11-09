@@ -9,6 +9,7 @@ declare global {
 		initialState?: InstanceLists;
 		ubuntuIconUri?: string;
 		ubuntuDarkIconUri?: string;
+		extensionIconUri?: string;
 	}
 }
 
@@ -23,6 +24,9 @@ const App: React.FC = () => {
 	// Debug: Log initial state
 	console.log('App mounted. Initial state:', window.initialState);
 	console.log('Instance lists:', instanceLists);
+
+	// Check if multipass is not installed
+	const isMultipassNotInstalled = instanceLists.error?.type === 'not-installed';
 
 	useEffect(() => {
 		// Listen for messages from the extension
@@ -96,6 +100,80 @@ const App: React.FC = () => {
 	const handleRefreshList = () => {
 		vscode.postMessage({ command: 'refreshList' });
 	};
+
+	const handleDownloadMultipass = () => {
+		vscode.postMessage({ command: 'downloadMultipass' });
+	};
+
+	// If multipass is not installed, show error message with download options
+	if (isMultipassNotInstalled) {
+		return (
+			<div
+				className="flex flex-col items-center justify-evenly min-h-[300px] px-6 py-12"
+				style={{ fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif' }}
+			>
+				{/* Icon - Custom warning icon in Ubuntu Orange */}
+				<div className="mb-6">
+					<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<circle cx="24" cy="24" r="20" stroke="#E95420" strokeWidth="2" fill="none"/>
+						<path d="M24 16V26" stroke="#E95420" strokeWidth="2" strokeLinecap="round"/>
+						<circle cx="24" cy="32" r="1.5" fill="#E95420"/>
+					</svg>
+				</div>
+
+				{/* Heading */}
+				<h2
+					className="mb-3 text-xl font-light"
+					style={{
+						color: 'var(--vscode-foreground)',
+						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+					}}
+				>
+					Multipass not found
+				</h2>
+
+				{/* Description */}
+				<p
+					className="max-w-md mb-8 text-sm leading-relaxed text-center"
+					style={{ color: 'var(--vscode-descriptionForeground)' }}
+				>
+					Multipass is not installed on your system. Please install it to use this extension.
+				</p>
+
+				{/* Actions */}
+				{/* Actions */}
+				<div className="flex flex-col w-full max-w-xs" style={{ gap: '12px' }}>
+					<button
+						onClick={handleDownloadMultipass}
+						className="w-full bg-[#E95420] text-white text-sm font-normal rounded-sm hover:bg-[#C73E1A] transition-colors"
+						style={{
+							padding: '10px 24px'
+						}}
+					>
+						Download Multipass
+					</button>
+					<button
+						onClick={handleRefreshList}
+						className="w-full text-sm font-normal transition-colors border rounded-sm"
+						style={{
+							padding: '10px 24px',
+							backgroundColor: 'var(--vscode-button-secondaryBackground)',
+							color: 'var(--vscode-button-secondaryForeground)',
+							borderColor: 'var(--vscode-button-border, var(--vscode-contrastBorder))'
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.backgroundColor = 'var(--vscode-button-secondaryHoverBackground)';
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.backgroundColor = 'var(--vscode-button-secondaryBackground)';
+						}}
+					>
+						Refresh
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<InstanceList

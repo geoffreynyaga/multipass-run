@@ -10,6 +10,7 @@ export class WebviewContent {
 		// Get URIs for Ubuntu icons
 		const ubuntuIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu.svg'));
 		const ubuntuDarkIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'distros', 'ubuntu-dark.svg'));
+		const extensionIconUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'icon.svg'));
 
 		// Use a nonce to only allow specific scripts to be run
 		const nonce = getNonce();
@@ -27,7 +28,7 @@ export class WebviewContent {
 			<style>
 				body {
 					color: white;
-					font-family: var(--vscode-font-family);
+					font-family: 'Ubuntu', var(--vscode-font-family), system-ui, -apple-system, sans-serif;
 					padding: 10px;
 				}
 			</style>
@@ -43,6 +44,7 @@ export class WebviewContent {
 				window.initialState = ${JSON.stringify(instanceLists)};
 				window.ubuntuIconUri = '${ubuntuIconUri}';
 				window.ubuntuDarkIconUri = '${ubuntuDarkIconUri}';
+				window.extensionIconUri = '${extensionIconUri}';
 			</script>
 			<script nonce="${nonce}" src="${scriptUri}" onerror="console.error('Failed to load script from: ${scriptUri}')"></script>
 			<script nonce="${nonce}">

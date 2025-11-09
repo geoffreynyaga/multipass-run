@@ -14,6 +14,10 @@ export interface MultipassInstance {
 export interface InstanceLists {
 	active: MultipassInstance[];
 	deleted: MultipassInstance[];
+	error?: {
+		type: 'not-installed' | 'other';
+		message: string;
+	};
 }
 
 export async function getInstances(): Promise<MultipassInstance[]> {
@@ -38,8 +42,33 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 		}
 
 		if (!stdout) {
+			// Check if multipass is not installed by looking for "command not found" in the error
+			const errorMessage = lastError?.message || '';
+			const isNotInstalled = errorMessage.includes('command not found') || 
+								  errorMessage.includes('not found') ||
+								  errorMessage.includes('No such file or directory');
+			
+			if (isNotInstalled) {
+				console.error('Multipass is not installed');
+				return { 
+					active: [], 
+					deleted: [],
+					error: {
+						type: 'not-installed',
+						message: 'Multipass is not installed on your system'
+					}
+				};
+			}
+			
 			console.error('Failed to execute multipass:', lastError);
-			return { active: [], deleted: [] };
+			return { 
+				active: [], 
+				deleted: [],
+				error: {
+					type: 'other',
+					message: errorMessage || 'Failed to execute multipass command'
+				}
+			};
 		}
 
 		const data = JSON.parse(stdout);
@@ -64,6 +93,13 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 		return { active: [], deleted: [] };
 	} catch (error) {
 		console.error('Error fetching Multipass instances:', error);
-		return { active: [], deleted: [] };
+		return { 
+			active: [], 
+			deleted: [],
+			error: {
+				type: 'other',
+				message: error instanceof Error ? error.message : 'Unknown error occurred'
+			}
+		};
 	}
 }

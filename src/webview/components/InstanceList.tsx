@@ -117,49 +117,78 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 
 	if (active.length === 0 && deleted.length === 0) {
 		return (
-			<div style={{ padding: '20px', textAlign: 'center', color: 'var(--vscode-descriptionForeground)' }}>
-				<p style={{
-					marginBottom: '20px',
-					fontSize: '14px',
-					fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
-				}}>No instances found.</p>
+			<div
+				style={{
+					padding: '60px 20px',
+					textAlign: 'center',
+					display: 'flex',
+					flexDirection: 'column',
+					alignItems: 'center',
+					justifyContent: 'center',
+					minHeight: '300px',
+					fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+				}}
+			>
+				{/* Icon */}
+				<div style={{ marginBottom: '24px' }}>
+					<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<circle cx="32" cy="32" r="28" stroke="#E95420" strokeWidth="2" fill="none" opacity="0.3"/>
+						<path d="M32 20V36M32 44H32.02" stroke="#E95420" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+					</svg>
+				</div>
+
+				{/* Heading */}
+				<h2
+					style={{
+						fontSize: '20px',
+						fontWeight: 300,
+						marginBottom: '12px',
+						color: 'var(--vscode-foreground)',
+						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+					}}
+				>
+					No instances found
+				</h2>
+
+				{/* Description */}
+				<p
+					style={{
+						marginBottom: '32px',
+						fontSize: '14px',
+						color: 'var(--vscode-descriptionForeground)',
+						maxWidth: '400px',
+						lineHeight: '1.5',
+						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
+						fontWeight: 300
+					}}
+				>
+					Get started by creating your first Multipass instance
+				</p>
+
+				{/* Button */}
 				<button
 					onClick={onCreateInstance}
 					style={{
-						background: '#0E8420',
+						background: '#E95420',
 						color: '#ffffff',
 						border: 'none',
-						padding: '12px 24px',
+						padding: '12px 32px',
 						cursor: 'pointer',
 						fontSize: '14px',
-						fontWeight: '500',
-						fontFamily: 'Ubuntu, Inter, system-ui, -apple-system, sans-serif',
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: '10px',
-						transition: 'all 0.2s ease',
-						boxShadow: '0 2px 8px rgba(14, 132, 32, 0.3)',
-						letterSpacing: '0.3px',
-						borderRadius: '4px',
+						fontWeight: 400,
+						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
+						borderRadius: '2px',
+						transition: 'background-color 0.2s ease',
+						boxShadow: 'none'
 					}}
 					onMouseOver={(e) => {
-						e.currentTarget.style.background = '#17aa2f';
-						e.currentTarget.style.boxShadow = '0 4px 12px rgba(14, 132, 32, 0.4)';
+						e.currentTarget.style.background = '#C73E1A';
 					}}
 					onMouseOut={(e) => {
-						e.currentTarget.style.background = '#0E8420';
-						e.currentTarget.style.boxShadow = '0 2px 8px rgba(14, 132, 32, 0.3)';
-					}}
-					onMouseDown={(e) => {
-						e.currentTarget.style.background = '#0a6817';
-						e.currentTarget.style.boxShadow = '0 1px 4px rgba(14, 132, 32, 0.2)';
-					}}
-					onMouseUp={(e) => {
-						e.currentTarget.style.background = '#17aa2f';
-						e.currentTarget.style.boxShadow = '0 4px 12px rgba(14, 132, 32, 0.4)';
+						e.currentTarget.style.background = '#E95420';
 					}}
 				>
-					Create new instance
+					Create Instance
 				</button>
 			</div>
 		);
@@ -184,6 +213,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		}
 		if (stateLower === 'stopped') {
 			return { ...baseStyle, color: '#525252' };
+		}
+		if (stateLower === 'downloading image' || stateLower.includes('downloading')) {
+			return { ...baseStyle, color: '#E95420', animation: 'pulse 1.5s ease-in-out infinite' };
 		}
 		// Transitional / unknown -> amber
 		return { ...baseStyle, color: '#f59e0b', animation: 'pulse 1.5s ease-in-out infinite' };

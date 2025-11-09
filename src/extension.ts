@@ -30,6 +30,17 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			if (message.command === 'refreshList') {
 				// Simple refresh of the instance list
 				await this.refresh();
+			} else if (message.command === 'downloadMultipass') {
+				// Open Multipass download page
+				const choice = await vscode.window.showInformationMessage(
+					'Multipass is not installed. Would you like to download it?',
+					'Open Download Page',
+					'Cancel'
+				);
+
+				if (choice === 'Open Download Page') {
+					vscode.env.openExternal(vscode.Uri.parse('https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/'));
+				}
 			} else if (message.command === 'getInstanceInfo') {
 				const info = await MultipassService.getInstanceInfo(message.instanceName);
 				if (info && this._view) {
@@ -121,7 +132,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				const result = await MultipassService.startInstance(message.instanceName);
 				if (result.success) {
 					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is starting...`);
-					
+
 					// Wait a bit for the instance to start, then open shell
 					setTimeout(() => {
 						const terminal = vscode.window.createTerminal({
@@ -152,7 +163,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				const result = await MultipassService.recoverInstance(message.instanceName);
 				if (result.success) {
 					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is recovering...`);
-					
+
 					// Wait for recovery and start, then open shell
 					setTimeout(async () => {
 						// Start the instance
@@ -315,47 +326,41 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	public async createDefaultInstance(): Promise<void> {
-		// Get instance name first
-		const instanceName = await vscode.window.showInputBox({
-			prompt: 'Enter a name for the new instance',
-			placeHolder: 'my-instance',
-			validateInput: (value) => {
-				if (!value || value.trim() === '') {
-					return 'Instance name cannot be empty';
+		let instanceName: string | undefined;
+		let imageRelease: string | undefined;
+
+		// createDefaultInstance now handles name prompt, image selection, and progress feedback
+		const result = await createDefaultInstance(undefined, {
+			onInstanceNameSelected: (name) => {
+				instanceName = name;
+			},
+			onImageSelected: (imageName, release) => {
+				imageRelease = release;
+			},
+			onLaunchStarted: async () => {
+				// Optimistically add the instance to the list with "Downloading Image" state
+				if (this._view && instanceName) {
+					const currentLists = await MultipassService.getInstanceLists();
+					const newInstance = {
+						name: instanceName,
+						state: 'Downloading Image',
+						ipv4: '',
+						release: imageRelease ? `Ubuntu ${imageRelease}` : 'Ubuntu'
+					};
+					currentLists.active.push(newInstance);
+					this._view.webview.postMessage({
+						command: 'updateInstances',
+						instanceLists: currentLists
+					});
 				}
-				if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
-					return 'Instance name can only contain letters, numbers, hyphens, and underscores';
-				}
-				return null;
 			}
 		});
 
-		if (!instanceName) {
-			return;
-		}
-
-		// Optimistically add the instance to the list with "Creating" state
-		if (this._view) {
-			const currentLists = await MultipassService.getInstanceLists();
-			const newInstance = {
-				name: instanceName,
-				state: 'Creating',
-				ipv4: '',
-				release: 'Ubuntu 22.04 LTS' // Default, will be updated when instance is created
-			};
-			currentLists.active.push(newInstance);
-			this._view.webview.postMessage({
-				command: 'updateInstances',
-				instanceLists: currentLists
-			});
-		}
-
-		// Now actually create the instance
-		const result = await createDefaultInstance(instanceName);
 		if (result) {
-			await this.pollInstanceStatus(instanceName);
+			// Instance was created successfully, poll for status
+			await this.pollInstanceStatus(result);
 		} else {
-			// If creation failed, refresh to remove the optimistic instance
+			// Creation was cancelled or failed, just refresh
 			await this.refresh();
 		}
 	}

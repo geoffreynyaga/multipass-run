@@ -4,6 +4,7 @@ import { getInstanceLists as getInstanceListsCommand, getInstances as getInstanc
 import { createDefaultInstance as createDefaultInstanceCommand } from './commands/launch/createDefaultInstance';
 import { createDetailedInstance as createDetailedInstanceCommand } from './commands/launch/createDetailedInstance';
 import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
+import { findImages as findImagesCommand } from './commands/findImages';
 import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
 import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
 import { purgeInstance as purgeInstanceCommand } from './commands/purgeInstance';
@@ -18,6 +19,8 @@ export type { MultipassInstance, InstanceLists } from './commands/listInstances'
 export type { MultipassInstanceInfo } from './commands/getInstanceInfo';
 export type { LaunchInstanceOptions } from './commands/launch/launchInstance';
 export type { DetailedInstanceConfig } from './commands/launch/createDetailedInstance';
+export type { MultipassImage, FindImagesResult } from './commands/findImages';
+export type { CreateInstanceCallbacks } from './commands/launch/createDefaultInstance';
 export { getInstances, getInstanceLists } from './commands/listInstances';
 export { getInstanceInfo } from './commands/getInstanceInfo';
 export { stopInstance } from './commands/stopInstance';
@@ -30,6 +33,7 @@ export { recoverInstance } from './commands/recoverInstance';
 export { purgeInstance } from './commands/purgeInstance';
 export { suspendInstance } from './commands/suspendInstance';
 export { shellInstance } from './commands/shell';
+export { findImages } from './commands/findImages';
 
 // Maintain backward compatibility with class-based API
 export class MultipassService {
@@ -46,4 +50,5 @@ export class MultipassService {
 	public static purgeInstance = purgeInstanceCommand;
 	public static suspendInstance = suspendInstanceCommand;
 	public static shellInstance = shellInstanceCommand;
+	public static findImages = findImagesCommand;
 }
