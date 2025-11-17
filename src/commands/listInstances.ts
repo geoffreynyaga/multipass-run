@@ -15,7 +15,7 @@ export interface InstanceLists {
 	active: MultipassInstance[];
 	deleted: MultipassInstance[];
 	error?: {
-		type: 'not-installed' | 'other';
+		type: 'not-installed' | 'daemon-not-running' | 'other';
 		message: string;
 	};
 }
@@ -42,11 +42,29 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 		}
 
 		if (!stdout) {
-			// Check if multipass is not installed by looking for "command not found" in the error
+			// Check the error type
 			const errorMessage = lastError?.message || '';
+			
+			// Check if daemon is not running (socket connection error)
+			const isDaemonNotRunning = errorMessage.includes('cannot connect to the multipass socket') ||
+									   errorMessage.includes('socket') && errorMessage.includes('connect');
+			
+			if (isDaemonNotRunning) {
+				console.error('Multipass daemon is not running');
+				return { 
+					active: [], 
+					deleted: [],
+					error: {
+						type: 'daemon-not-running',
+						message: 'Multipass daemon is not running. Please start Multipass.'
+					}
+				};
+			}
+			
+			// Check if multipass is not installed by looking for "command not found" in the error
 			const isNotInstalled = errorMessage.includes('command not found') || 
-								  errorMessage.includes('not found') ||
-								  errorMessage.includes('No such file or directory');
+							  errorMessage.includes('not found') ||
+							  errorMessage.includes('No such file or directory');
 			
 			if (isNotInstalled) {
 				console.error('Multipass is not installed');
@@ -58,9 +76,7 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 						message: 'Multipass is not installed on your system'
 					}
 				};
-			}
-			
-			console.error('Failed to execute multipass:', lastError);
+			}			console.error('Failed to execute multipass:', lastError);
 			return { 
 				active: [], 
 				deleted: [],

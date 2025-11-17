@@ -2,7 +2,7 @@
   "name": "multipass-run",
   "displayName": "Multipass Run",
   "description": "Run and manage Multipass instances in VsCode",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "icon": "media/icon.png",
   "publisher": "GeoffreyNyaga",
   "repository": {

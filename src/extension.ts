@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import { MultipassService, createDefaultInstance, createDetailedInstance, launchInstance } from './multipassService';
 
+import { MULTIPASS_PATHS } from './utils/constants';
 import { WebviewContent } from './webviewContent';
 
 // WebView provider for the sidebar view
@@ -124,9 +125,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				}
 				this._instanceTerminals.get(message.instanceName)!.push(terminal);
 
-				// Find the multipass path
-				const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
-				terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+				// Try multipass paths in order
+				const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
+				terminal.sendText(shellCommand);
 			} else if (message.command === 'startAndShellInstance') {
 				// Start the instance first
 				const result = await MultipassService.startInstance(message.instanceName);
@@ -147,9 +148,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						}
 						this._instanceTerminals.get(message.instanceName)!.push(terminal);
 
-						// Find the multipass path
-						const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
-						terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+						// Try multipass paths in order
+						const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
+						terminal.sendText(shellCommand);
 					}, 3000); // Wait 3 seconds for instance to start
 
 					// Start polling for status updates
@@ -183,9 +184,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 								}
 								this._instanceTerminals.get(message.instanceName)!.push(terminal);
 
-								// Find the multipass path
-								const multipassPath = '/usr/local/bin/multipass'; // Default, will try alternatives if needed
-								terminal.sendText(`${multipassPath} shell ${message.instanceName} || /opt/homebrew/bin/multipass shell ${message.instanceName} || multipass shell ${message.instanceName}`);
+								// Try multipass paths in order
+								const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
+								terminal.sendText(shellCommand);
 							}, 3000); // Wait 3 seconds for instance to start
 						}
 					}, 2000); // Wait 2 seconds for recovery
