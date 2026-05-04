@@ -25,12 +25,24 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _htmlInitialized = false;
 	public terminalManager = new TerminalManager();
+	private readonly _statusBarItem: vscode.StatusBarItem;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
 		public readonly pendingStore: PendingLaunchStore,
 		private readonly _globalState: vscode.Memento
-	) {}
+	) {
+		this._statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+		this._statusBarItem.command = 'multipass-run.focus';
+		this._statusBarItem.name = 'Multipass Run';
+		this._statusBarItem.text = '$(vm) Multipass';
+		this._statusBarItem.tooltip = 'Focus Multipass Run';
+		this._statusBarItem.show();
+	}
+
+	public get statusBarItem(): vscode.StatusBarItem {
+		return this._statusBarItem;
+	}
 
 	private async maybeOfferKeyRemovalPrompt(): Promise<void> {
 		try {
@@ -426,6 +438,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			? rawLists
 			: mergePendingIntoLists(rawLists, this.pendingStore.list());
 
+		this.updateStatusBar(merged);
+
 		// If webview HTML is not set yet, set it with initial data
 		if (!this._htmlInitialized) {
 			this._view.webview.html = WebviewContent.getHtml(merged, this._view.webview, this._extensionUri);
@@ -437,6 +451,40 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				instanceLists: merged
 			});
 		}
+	}
+
+	private updateStatusBar(instanceLists: Awaited<ReturnType<typeof MultipassService.getInstanceLists>>): void {
+		if (instanceLists.error) {
+			this._statusBarItem.text = '$(vm) Multipass';
+			this._statusBarItem.tooltip = instanceLists.error.message;
+			this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+			return;
+		}
+
+		const running = instanceLists.active.filter((i) => i.state.toLowerCase() === 'running');
+		const pending = instanceLists.active.filter((i) => {
+			const state = i.state.toLowerCase();
+			return state.includes('downloading') || state === 'creating' || state === 'starting';
+		});
+		const errors = instanceLists.active.filter((i) => i.state.toLowerCase().includes('error'));
+
+		this._statusBarItem.backgroundColor = undefined;
+		if (errors.length > 0) {
+			this._statusBarItem.text = `$(vm) ${running.length} running · ${errors.length} error`;
+			this._statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+		} else if (pending.length > 0) {
+			this._statusBarItem.text = `$(vm) ${running.length} running · ${pending.length} pending`;
+		} else {
+			this._statusBarItem.text = `$(vm) ${running.length} running`;
+		}
+
+		const lines = [
+			running.length > 0 ? `Running: ${running.map((i) => i.name).join(', ')}` : 'Running: none',
+			pending.length > 0 ? `Pending: ${pending.map((i) => i.name).join(', ')}` : undefined,
+			errors.length > 0 ? `Errors: ${errors.map((i) => i.name).join(', ')}` : undefined,
+			'Click to focus Multipass Run',
+		].filter(Boolean);
+		this._statusBarItem.tooltip = new vscode.MarkdownString(lines.join('\n\n'));
 	}
 }
 
@@ -457,6 +505,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const provider = new MultipassViewProvider(context.extensionUri, pendingStore, context.globalState);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
+	);
+	context.subscriptions.push(provider.statusBarItem);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.focus', async () => {
+			await vscode.commands.executeCommand('workbench.view.extension.multipass-run-sidebar');
+		})
 	);
 
 	// Listen for terminal close events to clean up our tracking

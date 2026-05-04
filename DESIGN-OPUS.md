@@ -226,6 +226,8 @@ Commit shape:
 
 ## Phase 6 — Status Bar Item
 
+Status: done.
+
 Goal: give a small global signal without crowding the sidebar.
 
 References:
