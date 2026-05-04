@@ -456,6 +456,10 @@ const App: React.FC = () => {
 		vscode.postMessage({ command: 'refreshList' });
 	};
 
+	const handleClearPendingLaunch = (name: string) => {
+		vscode.postMessage({ command: 'clearPendingLaunch', instanceName: name });
+	};
+
 	const handleDownloadMultipass = () => {
 		vscode.postMessage({ command: 'downloadMultipass' });
 	};
@@ -569,6 +573,7 @@ const App: React.FC = () => {
 			onPurgeInstance={handlePurgeInstance}
 			onGetInstanceInfo={handleGetInstanceInfo}
 			onRefreshList={handleRefreshList}
+			onClearPendingLaunch={handleClearPendingLaunch}
 		/>
 	);
 };

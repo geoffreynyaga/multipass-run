@@ -19,6 +19,7 @@ interface InstanceContextMenuProps {
 	onRecoverAndShellInstance: (name: string) => void;
 	onPurgeInstance: (name: string) => void;
 	onDeleteInstance: (name: string) => void;
+	onClearPendingLaunch: (name: string) => void;
 }
 
 interface MenuItemProps {
@@ -71,7 +72,8 @@ export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
 	onRecoverInstance,
 	onRecoverAndShellInstance,
 	onPurgeInstance,
-	onDeleteInstance
+	onDeleteInstance,
+	onClearPendingLaunch
 }) => {
 	const state = contextMenu.state.toLowerCase();
 	const runAndClose = (action: (name: string) => void) => {
@@ -96,6 +98,11 @@ export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
 			}}
 			onClick={(e: React.MouseEvent) => e.stopPropagation()}
 		>
+			{state === 'stuck' && (
+				<MenuItem onClick={() => runAndClose(onClearPendingLaunch)}>
+					Clear pending launch
+				</MenuItem>
+			)}
 			{state === 'running' && (
 				<>
 					<MenuItem onClick={() => runAndClose(onShellInstance)}>Open Shell</MenuItem>
@@ -116,7 +123,7 @@ export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
 					<MenuItem danger separator onClick={() => runAndClose(onPurgeInstance)}>Purge Instance</MenuItem>
 				</>
 			)}
-			{state !== 'deleted' && (
+			{state !== 'deleted' && state !== 'stuck' && (
 				<MenuItem danger separator onClick={() => runAndClose(onDeleteInstance)}>
 					Delete Instance
 				</MenuItem>
@@ -124,4 +131,3 @@ export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
 		</div>
 	);
 };
-

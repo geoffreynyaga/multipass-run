@@ -38,6 +38,7 @@ interface InstanceListProps {
 	onPurgeInstance: (name: string) => void;
 	onGetInstanceInfo: (name: string) => void;
 	onRefreshList: () => void;
+	onClearPendingLaunch: (name: string) => void;
 }
 
 export const InstanceList: React.FC<InstanceListProps> = ({
@@ -64,7 +65,8 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onRecoverInstance,
 	onPurgeInstance,
 	onGetInstanceInfo,
-	onRefreshList
+	onRefreshList,
+	onClearPendingLaunch
 }) => {
 	const { active, deleted } = instanceLists;
 	const [optimisticLaunches, setOptimisticLaunches] = React.useState<Array<{ name: string; release: string }>>([]);
@@ -199,6 +201,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 			launch,
 			...launches.filter((existing) => existing.name !== launch.name)
 		]);
+	};
+
+	const clearPendingLaunch = (name: string) => {
+		setOptimisticLaunches((launches) => launches.filter((launch) => launch.name !== name));
+		onClearPendingLaunch(name);
 	};
 
 	if (activeWithOptimistic.length === 0 && deleted.length === 0) {
@@ -655,6 +662,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 					onRecoverAndShellInstance={onRecoverAndShellInstance}
 					onPurgeInstance={onPurgeInstance}
 					onDeleteInstance={onDeleteInstance}
+					onClearPendingLaunch={clearPendingLaunch}
 				/>
 			)}
 

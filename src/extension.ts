@@ -266,6 +266,13 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			} else if (message.command === 'cancelPendingLaunch') {
 				await this.pendingStore.remove(message.instanceName);
 				await this.refresh();
+			} else if (message.command === 'clearPendingLaunch') {
+				if (typeof message.instanceName === 'string') {
+					await this.pendingStore.remove(message.instanceName);
+				} else {
+					await this.pendingStore.clear();
+				}
+				await this.refresh();
 			} else if (message.command === 'retryPendingLaunch') {
 				// Drop the stuck entry, then re-enter the default launch flow.
 				await this.pendingStore.remove(message.instanceName);
