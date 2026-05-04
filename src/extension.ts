@@ -7,7 +7,10 @@ import { MULTIPASS_PATHS } from './utils/constants';
 import { WebviewContent } from './webviewContent';
 import { createDefaultInstance } from './commands/launch/createDefaultInstance';
 import { createDetailedInstance } from './commands/launch/createDetailedInstance';
+import { getMultipassCapabilities } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
+import type { MultipassImage } from './commands/findImages';
+import type { MultipassCapabilities } from './utils/multipassVersion';
 
 // Extension utilities
 import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
@@ -26,6 +29,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _htmlInitialized = false;
 	public terminalManager = new TerminalManager();
 	private readonly _statusBarItem: vscode.StatusBarItem;
+	private _multipassCapabilities: MultipassCapabilities = { supportsAlternativeDistros: false };
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
@@ -69,8 +73,146 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	private pickImageForDistro(
+		images: Record<string, MultipassImage>,
+		distro: 'ubuntu' | 'fedora' | 'debian'
+	): { imageKey?: string; release: string } | undefined {
+		if (distro === 'ubuntu') {
+			return { release: 'Ubuntu LTS' };
+		}
+
+		const candidates = Object.entries(images).filter(([key, image]) => {
+			const os = image.os.toLowerCase();
+			return os.includes(distro) || key.toLowerCase().includes(distro);
+		});
+		if (candidates.length === 0) {
+			return undefined;
+		}
+
+		const sorted = candidates.sort((a, b) => {
+			const aImage = a[1];
+			const bImage = b[1];
+			return bImage.release.localeCompare(aImage.release, undefined, {
+				numeric: true,
+				sensitivity: 'base',
+			});
+		});
+
+		const [imageKey, image] = sorted[0];
+		return {
+			imageKey,
+			release: `${image.os} ${image.release}`,
+		};
+	}
+
+	private async launchInlineInstance(config: {
+		mode: 'quick' | 'custom';
+		name?: string;
+		distro: 'ubuntu' | 'fedora' | 'debian';
+		cpus?: string;
+		memory?: string;
+		disk?: string;
+	}): Promise<void> {
+		const instanceName = config.name?.trim() || `multipass-${Date.now().toString(36)}`;
+		if (!/^[a-zA-Z0-9-_]+$/.test(instanceName)) {
+			vscode.window.showErrorMessage('Instance name can only contain letters, numbers, hyphens, and underscores.');
+			return;
+		}
+		if (await MultipassService.instanceNameExists(instanceName)) {
+			vscode.window.showErrorMessage(`Instance '${instanceName}' already exists. Please choose a different name.`);
+			return;
+		}
+		if (config.distro !== 'ubuntu' && !this._multipassCapabilities.supportsAlternativeDistros) {
+			vscode.window.showErrorMessage('Fedora and Debian images require Multipass 1.17 or newer.');
+			return;
+		}
+
+		const imagesResult = await MultipassService.findImages();
+		if (!imagesResult) {
+			vscode.window.showErrorMessage('Failed to fetch available Multipass images.');
+			return;
+		}
+		const image = this.pickImageForDistro(imagesResult.images, config.distro);
+		if (!image) {
+			vscode.window.showErrorMessage(`No ${config.distro} image was found in multipass find.`);
+			return;
+		}
+
+		const isCustom = config.mode === 'custom';
+		if (isCustom) {
+			const cpuCount = parseInt(config.cpus || '', 10);
+			if (isNaN(cpuCount) || cpuCount < 1) {
+				vscode.window.showErrorMessage('CPU must be a positive integer.');
+				return;
+			}
+			for (const [label, value] of [['Memory', config.memory], ['Disk', config.disk]] as const) {
+				if (!value || !/^\d+(\.\d+)?[KMG]$/.test(value)) {
+					vscode.window.showErrorMessage(`${label} must use a size like 2G or 512M.`);
+					return;
+				}
+			}
+		}
+
+		await this.pendingStore.add({
+			name: instanceName,
+			release: image.release,
+			startedAt: Date.now(),
+			status: 'launching',
+			config: {
+				image: image.imageKey,
+				cpus: isCustom ? config.cpus : undefined,
+				memory: isCustom ? config.memory : undefined,
+				disk: isCustom ? config.disk : undefined,
+			},
+		});
+
+		if (this._view) {
+			const currentLists = await MultipassService.getInstanceLists();
+			const isImageCached = await MultipassService.isImageAlreadyDownloaded(image.release);
+			currentLists.active.push({
+				name: instanceName,
+				state: isImageCached ? 'Creating' : 'Downloading Image',
+				ipv4: '',
+				release: image.release,
+			});
+			this._view.webview.postMessage({
+				command: 'updateInstances',
+				instanceLists: currentLists,
+			});
+		}
+
+		const result = await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: `Launching ${instanceName}`,
+				cancellable: false,
+			},
+			async (progress) => {
+				return await launchInstance({
+					name: instanceName,
+					image: image.imageKey,
+					cpus: isCustom ? config.cpus : undefined,
+					memory: isCustom ? config.memory : undefined,
+					disk: isCustom ? config.disk : undefined,
+					onProgress: (message) => progress.report({ message }),
+				});
+			}
+		);
+
+		if (result.success) {
+			await this.pendingStore.remove(instanceName);
+			vscode.window.showInformationMessage(`Instance '${instanceName}' launched.`);
+			pollInstanceStatus(instanceName, () => this.refresh());
+		} else {
+			await this.pendingStore.remove(instanceName);
+			vscode.window.showErrorMessage(`Failed to launch instance '${instanceName}': ${result.error}`);
+			await this.refresh();
+		}
+	}
+
 	public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
 		this._view = webviewView;
+		this._htmlInitialized = false;
 
 		webviewView.webview.options = {
 			enableScripts: true,
@@ -79,6 +221,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				vscode.Uri.joinPath(this._extensionUri, 'dist')
 			]
 		};
+
+		webviewView.onDidChangeVisibility(async () => {
+			if (webviewView.visible) {
+				await this.refresh();
+			}
+		});
 
 		// Handle messages from the webview
 		webviewView.webview.onDidReceiveMessage(async (message) => {
@@ -274,6 +422,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				await this.createDefaultInstance();
 			} else if (message.command === 'launchCustomInstance') {
 				await this.createDetailedInstance();
+			} else if (message.command === 'launchInlineInstance') {
+				await this.launchInlineInstance(message.config);
 			} else if (message.command === 'launchCloudInitInstance') {
 				vscode.window.showInformationMessage('Cloud-init launches are coming soon.');
 			} else if (message.command === 'launchProfileInstance') {
@@ -434,6 +584,9 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		const rawLists = await MultipassService.getInstanceLists();
+		this._multipassCapabilities = rawLists.error
+			? { supportsAlternativeDistros: false }
+			: await getMultipassCapabilities();
 
 		// Reconcile pending launches against the real list. Drop ones that have
 		// landed; flag ones that have been hanging past STUCK_THRESHOLD_MS.
@@ -448,13 +601,22 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 		// If webview HTML is not set yet, set it with initial data
 		if (!this._htmlInitialized) {
-			this._view.webview.html = WebviewContent.getHtml(merged, this._view.webview, this._extensionUri);
+			this._view.webview.html = WebviewContent.getHtml(
+				merged,
+				this._view.webview,
+				this._extensionUri,
+				this._multipassCapabilities
+			);
 			this._htmlInitialized = true;
 		} else {
 			// Otherwise, just update the React state via message
 			this._view.webview.postMessage({
 				command: 'updateInstances',
 				instanceLists: merged
+			});
+			this._view.webview.postMessage({
+				command: 'multipassCapabilities',
+				capabilities: this._multipassCapabilities
 			});
 		}
 	}

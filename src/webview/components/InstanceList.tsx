@@ -1,7 +1,11 @@
 import { InstanceLists, MultipassInstanceInfo } from '../../multipassService';
 import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
+import { EmptyInstanceState } from './InstanceList/EmptyInstanceState';
+import { InstanceContextMenu } from './InstanceList/InstanceContextMenu';
 import { InstanceDetails } from './InstanceDetails';
+import type { InlineLaunchConfig } from '../App';
+import type { MultipassCapabilities } from '../../utils/multipassVersion';
 import { MAX_VM_NAME_DISPLAY_CHARS } from '../../utils/constants';
 import React from 'react';
 
@@ -18,6 +22,8 @@ interface InstanceListProps {
 	onCreateCustomInstance: () => void;
 	onCreateCloudInitInstance: () => void;
 	onCreateProfileInstance: () => void;
+	onLaunchFromInlineForm: (config: InlineLaunchConfig) => void;
+	multipassCapabilities: MultipassCapabilities;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
 	onSuspendInstance: (name: string) => void;
@@ -41,10 +47,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	fedoraDarkIconUri,
 	debianIconUri,
 	debianDarkIconUri,
-	onCreateInstance,
-	onCreateCustomInstance,
 	onCreateCloudInitInstance,
 	onCreateProfileInstance,
+	onLaunchFromInlineForm,
+	multipassCapabilities,
 	onStartInstance,
 	onStopInstance,
 	onSuspendInstance,
@@ -59,11 +65,31 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onRefreshList
 }) => {
 	const { active, deleted } = instanceLists;
+	const [optimisticLaunches, setOptimisticLaunches] = React.useState<Array<{ name: string; release: string }>>([]);
 	const [expandedInstance, setExpandedInstance] = React.useState<string | null>(null);
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
 	const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; instanceName: string; state: string } | null>(null);
 	const [copiedInstance, setCopiedInstance] = React.useState<string | null>(null);
-	const [showEmptyOptions, setShowEmptyOptions] = React.useState(false);
+	const activeWithOptimistic = React.useMemo(() => {
+		const realNames = new Set(active.map((instance) => instance.name));
+		const synthetic = optimisticLaunches
+			.filter((launch) => !realNames.has(launch.name))
+			.map((launch) => ({
+				name: launch.name,
+				state: 'Downloading Image',
+				ipv4: '',
+				release: launch.release
+			}));
+		return [...synthetic, ...active];
+	}, [active, optimisticLaunches]);
+
+	React.useEffect(() => {
+		if (optimisticLaunches.length === 0) {
+			return;
+		}
+		const realNames = new Set(active.map((instance) => instance.name));
+		setOptimisticLaunches((launches) => launches.filter((launch) => !realNames.has(launch.name)));
+	}, [active, optimisticLaunches.length]);
 
 	// Helper function to get the correct icon based on OS
 	const getDistroIcon = (release: string, isDark: boolean): string | null => {
@@ -122,7 +148,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 
 	// Poll for instance updates when there are instances in transitional states
 	React.useEffect(() => {
-		const hasTransitionalState = active.some(instance => {
+		const hasTransitionalState = activeWithOptimistic.some(instance => {
 			const state = instance.state.toLowerCase();
 			// Check for any transitional or unknown states, or instances without IP
 			return state === 'creating' ||
@@ -143,7 +169,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		}, 2000);
 
 		return () => clearInterval(intervalId);
-	}, [active, onRefreshList]);
+	}, [activeWithOptimistic, onRefreshList]);
 
 	// Handle context menu
 	const handleContextMenu = (e: React.MouseEvent, instanceName: string, state: string) => {
@@ -164,263 +190,26 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return () => window.removeEventListener('click', handleClick);
 	}, []);
 
-	const EmptyHero = () => (
-		<div style={{ width: '100%', maxWidth: '320px', paddingTop: '56px' }}>
-			<div
-				aria-hidden="true"
-				style={{
-					width: '58px',
-					height: '58px',
-					borderRadius: '50%',
-					background: 'linear-gradient(135deg, #ff7336, #e95420)',
-					margin: '0 0 24px',
-					boxShadow: '0 10px 24px rgba(233,84,32,0.24)'
+	if (activeWithOptimistic.length === 0 && deleted.length === 0) {
+		return (
+			<EmptyInstanceState
+				ubuntuIconUri={ubuntuIconUri}
+				ubuntuDarkIconUri={ubuntuDarkIconUri}
+				fedoraIconUri={fedoraIconUri}
+				fedoraDarkIconUri={fedoraDarkIconUri}
+				debianIconUri={debianIconUri}
+				debianDarkIconUri={debianDarkIconUri}
+				multipassCapabilities={multipassCapabilities}
+				onCreateCloudInitInstance={onCreateCloudInitInstance}
+				onCreateProfileInstance={onCreateProfileInstance}
+				onLaunchFromInlineForm={onLaunchFromInlineForm}
+				onOptimisticLaunch={(launch) => {
+					setOptimisticLaunches((launches) => [
+						launch,
+						...launches.filter((existing) => existing.name !== launch.name)
+					]);
 				}}
 			/>
-			<h2
-				style={{
-					fontSize: '24px',
-					lineHeight: 1.45,
-					fontWeight: 600,
-					margin: '0 0 12px',
-					color: 'var(--vscode-foreground)',
-					letterSpacing: 0
-				}}
-			>
-				Your pocket cloud,<br />right in VS Code.
-			</h2>
-			<p
-				style={{
-					margin: '0 0 24px',
-					fontSize: '14px',
-					color: 'var(--vscode-descriptionForeground)',
-					lineHeight: 1.5,
-					fontWeight: 400
-				}}
-			>
-				Spin up Multipass Ubuntu VMs with cloud-init, mounts, and SSH when you need them.
-			</p>
-		</div>
-	);
-
-	if (active.length === 0 && deleted.length === 0) {
-		if (!showEmptyOptions) {
-			return (
-				<div
-					style={{
-						minHeight: '100vh',
-						padding: '24px 30px 20px',
-						display: 'flex',
-						flexDirection: 'column',
-						alignItems: 'center',
-						justifyContent: 'flex-start',
-						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
-					}}
-				>
-					<div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch', width: '100%' }}>
-						<EmptyHero />
-						<button
-							type="button"
-							onClick={onCreateInstance}
-							style={{
-								background: '#E95420',
-								color: '#ffffff',
-								border: 'none',
-								borderRadius: '3px',
-								padding: '13px 28px',
-								cursor: 'pointer',
-								fontSize: '14px',
-								fontWeight: 600,
-								fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-								minWidth: '222px',
-								minHeight: '48px',
-								width: '100%'
-							}}
-							onMouseOver={(e) => {
-								e.currentTarget.style.background = '#C7401A';
-							}}
-							onMouseOut={(e) => {
-								e.currentTarget.style.background = '#E95420';
-							}}
-						>
-							Quick install LTS
-						</button>
-						<button
-							type="button"
-							onClick={() => setShowEmptyOptions(true)}
-							style={{
-								marginTop: '24px',
-								background: 'transparent',
-								border: 'none',
-								color: 'var(--vscode-descriptionForeground)',
-								cursor: 'pointer',
-								fontSize: '13px',
-								fontWeight: 500,
-								fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-								textDecoration: 'underline',
-								textUnderlineOffset: '4px'
-							}}
-						>
-							More options...
-						</button>
-					</div>
-					<div
-						style={{
-							width: 'calc(100% + 60px)',
-							margin: '0 -30px',
-							padding: '14px 22px 0',
-							borderTop: '1px solid rgba(127,127,127,0.13)',
-							color: 'var(--vscode-descriptionForeground)',
-							fontSize: '12px',
-							display: 'flex',
-							alignItems: 'center',
-							gap: '10px',
-							opacity: 0.75
-						}}
-					>
-						<span aria-hidden="true">✓</span>
-						<span>Multipass detected</span>
-					</div>
-				</div>
-			);
-		}
-
-		const quickActionStyle: React.CSSProperties = {
-			width: '100%',
-			display: 'grid',
-			gridTemplateColumns: '30px 1fr 16px',
-			alignItems: 'center',
-			gap: '12px',
-			padding: '9px 0',
-			background: 'transparent',
-			border: 'none',
-			color: 'var(--vscode-foreground)',
-			cursor: 'pointer',
-			textAlign: 'left',
-			fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
-		};
-		const iconBoxStyle: React.CSSProperties = {
-			width: '30px',
-			height: '30px',
-			borderRadius: '4px',
-			display: 'flex',
-			alignItems: 'center',
-			justifyContent: 'center',
-			background: 'rgba(255,255,255,0.04)',
-			color: 'var(--vscode-descriptionForeground)'
-		};
-		const emptyOptionLabelStyle: React.CSSProperties = {
-			display: 'block',
-			fontSize: '13px',
-			fontWeight: 500,
-			color: 'var(--vscode-foreground)',
-			lineHeight: 1.25
-		};
-		const emptyOptionDescriptionStyle: React.CSSProperties = {
-			display: 'block',
-			marginTop: '2px',
-			fontSize: '12px',
-			color: 'var(--vscode-descriptionForeground)',
-			lineHeight: 1.25
-		};
-		const chevronRight = (
-			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-				<path d="M5.25 3.5L8.75 7L5.25 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-			</svg>
-		);
-
-		return (
-			<div
-				style={{
-					minHeight: '100vh',
-						padding: '24px 30px 36px',
-						display: 'flex',
-						flexDirection: 'column',
-						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-						background: 'linear-gradient(135deg, transparent 0 58%, rgba(233,84,32,0.16) 58% 100%)'
-				}}
-			>
-				<EmptyHero />
-
-				<button
-					type="button"
-					onClick={onCreateInstance}
-					style={{
-						background: '#E95420',
-						color: '#ffffff',
-						border: 'none',
-						borderRadius: '3px',
-						padding: '11px 18px',
-						cursor: 'pointer',
-						fontSize: '13px',
-						fontWeight: 600,
-						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-						display: 'inline-flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						gap: '8px',
-						minHeight: '40px',
-						marginBottom: '28px',
-						width: '100%'
-					}}
-					onMouseOver={(e) => {
-						e.currentTarget.style.background = '#C7401A';
-					}}
-					onMouseOut={(e) => {
-						e.currentTarget.style.background = '#E95420';
-					}}
-				>
-					<span style={{ fontSize: '18px', lineHeight: 1 }}>+</span>
-					<span>Quick install LTS</span>
-				</button>
-
-				<div
-					style={{
-						borderTop: '1px solid rgba(127,127,127,0.13)',
-						paddingTop: '22px'
-					}}
-				>
-					<div
-						style={{
-							fontSize: '11px',
-							textTransform: 'uppercase',
-							letterSpacing: '2px',
-							color: 'var(--vscode-descriptionForeground)',
-							fontWeight: 700,
-							marginBottom: '18px'
-						}}
-					>
-						Other options
-					</div>
-
-					<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-						<button type="button" style={quickActionStyle} onClick={onCreateCustomInstance}>
-							<span style={iconBoxStyle}>☼</span>
-							<span>
-								<span style={emptyOptionLabelStyle}>Configure a custom instance</span>
-								<span style={emptyOptionDescriptionStyle}>Pick CPU, RAM, disk, image</span>
-							</span>
-							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
-						</button>
-						<button type="button" style={quickActionStyle} onClick={onCreateCloudInitInstance}>
-							<span style={iconBoxStyle}>▣</span>
-							<span>
-								<span style={emptyOptionLabelStyle}>Open cloud-init YAML</span>
-								<span style={emptyOptionDescriptionStyle}>Edit, validate, then launch</span>
-							</span>
-							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
-						</button>
-						<button type="button" style={quickActionStyle} onClick={onCreateProfileInstance}>
-							<span style={iconBoxStyle}>□</span>
-							<span>
-								<span style={emptyOptionLabelStyle}>Your profiles</span>
-								<span style={emptyOptionDescriptionStyle}>Reusable Multipass configurations</span>
-							</span>
-							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
-						</button>
-					</div>
-				</div>
-			</div>
 		);
 	}
 
@@ -492,7 +281,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		suspended: 1,
 		stopped: 2,
 	};
-	const orderedActive = [...active].sort((a, b) => {
+	const orderedActive = [...activeWithOptimistic].sort((a, b) => {
 		const pa = orderPriority[a.state.toLowerCase()] ?? 3;
 		const pb = orderPriority[b.state.toLowerCase()] ?? 3;
 		if (pa !== pb) return pa - pb;
@@ -503,7 +292,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	return (
 		<div style={{ padding: '12px 16px 32px' }}>
 			{/* Active header */}
-			{active.length > 0 && (
+			{activeWithOptimistic.length > 0 && (
 				<div style={{
 					fontSize: '9px',
 					textTransform: 'uppercase',
@@ -783,325 +572,20 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				</div>
 			)}
 
-			{/* Context Menu */}
 			{contextMenu && (
-				<div
-					style={{
-						position: 'fixed',
-						left: `${contextMenu.x}px`,
-						top: `${contextMenu.y}px`,
-						background: 'var(--vscode-menu-background)',
-						border: '1px solid var(--vscode-menu-border)',
-						borderRadius: '4px',
-						boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-						padding: '4px 0',
-						minWidth: '150px',
-						zIndex: 1000,
-						fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-					}}
-					onClick={(e: React.MouseEvent) => e.stopPropagation()}
-				>
-					{contextMenu.state.toLowerCase() === 'running' && (
-						<>
-							<div
-								onClick={() => {
-									onShellInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								Open Shell
-							</div>
-							<div
-								onClick={() => {
-									onSuspendInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								<span>⏸</span>
-								Pause (Suspend)
-							</div>
-							<div
-								onClick={() => {
-									onStopInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								<span>⏹</span>
-								Stop Instance
-							</div>
-						</>
-					)}
-						{contextMenu.state.toLowerCase() === 'stopped' && (
-						<>
-							<div
-								onClick={() => {
-									onStartInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								<span>▶</span>
-								Start Instance
-							</div>
-							<div
-								onClick={() => {
-									onStartAndShellInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								Start and Shell
-							</div>
-						</>
-					)}
-						{contextMenu.state.toLowerCase() === 'suspended' && (
-						<>
-							<div
-								onClick={() => {
-									onStartInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								<span>▶</span>
-								Start Instance
-							</div>
-							<div
-								onClick={() => {
-									onStartAndShellInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								Start and Shell
-							</div>
-						</>
-					)}
-						{contextMenu.state.toLowerCase() === 'deleted' && (
-						<>
-							<div
-								onClick={() => {
-									onRecoverInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								Recover Instance
-							</div>
-							<div
-								onClick={() => {
-									onRecoverAndShellInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: 'var(--vscode-menu-foreground)',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-									e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-									e.currentTarget.style.color = 'var(--vscode-menu-foreground)';
-								}}
-							>
-								Recover and Shell
-							</div>
-							<div
-								onClick={() => {
-									onPurgeInstance(contextMenu.instanceName);
-									setContextMenu(null);
-								}}
-								style={{
-									padding: '6px 12px',
-									cursor: 'pointer',
-									fontSize: '12px',
-									color: '#f44336',
-									display: 'flex',
-									alignItems: 'center',
-									gap: '8px',
-									borderTop: '1px solid var(--vscode-menu-separatorBackground)',
-									marginTop: '4px',
-									paddingTop: '8px',
-								}}
-								onMouseOver={(e) => {
-									e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-								}}
-								onMouseOut={(e) => {
-									e.currentTarget.style.background = 'transparent';
-								}}
-							>
-								Purge Instance
-							</div>
-						</>
-					)}
-						{contextMenu.state.toLowerCase() !== 'deleted' && (
-						<div
-							onClick={() => {
-								onDeleteInstance(contextMenu.instanceName);
-								setContextMenu(null);
-							}}
-							style={{
-								padding: '6px 12px',
-								cursor: 'pointer',
-								fontSize: '12px',
-								color: 'var(--vscode-errorForeground)',
-								display: 'flex',
-								alignItems: 'center',
-								gap: '8px',
-								borderTop: '1px solid var(--vscode-menu-separatorBackground)',
-								marginTop: '4px',
-								paddingTop: '8px',
-							}}
-							onMouseOver={(e) => {
-								e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
-							}}
-							onMouseOut={(e) => {
-								e.currentTarget.style.background = 'transparent';
-							}}
-						>
-
-							Delete Instance
-						</div>
-					)}
-				</div>
+				<InstanceContextMenu
+					contextMenu={contextMenu}
+					onClose={() => setContextMenu(null)}
+					onShellInstance={onShellInstance}
+					onSuspendInstance={onSuspendInstance}
+					onStopInstance={onStopInstance}
+					onStartInstance={onStartInstance}
+					onStartAndShellInstance={onStartAndShellInstance}
+					onRecoverInstance={onRecoverInstance}
+					onRecoverAndShellInstance={onRecoverAndShellInstance}
+					onPurgeInstance={onPurgeInstance}
+					onDeleteInstance={onDeleteInstance}
+				/>
 			)}
 
 			<style>{`

@@ -1,5 +1,6 @@
 import { InstanceLists, MultipassInstanceInfo } from '../multipassService';
 import React, { useEffect, useState } from 'react';
+import type { MultipassCapabilities } from '../utils/multipassVersion';
 
 import  InstanceList from './components/InstanceList';
 
@@ -7,6 +8,7 @@ declare const acquireVsCodeApi: () => any;
 declare global {
 	interface Window {
 		initialState?: InstanceLists;
+		multipassCapabilities?: MultipassCapabilities;
 		ubuntuIconUri?: string;
 		ubuntuDarkIconUri?: string;
 		fedoraIconUri?: string;
@@ -19,11 +21,23 @@ declare global {
 
 const vscode = acquireVsCodeApi();
 
+export interface InlineLaunchConfig {
+	mode: 'quick' | 'custom';
+	name?: string;
+	distro: 'ubuntu' | 'fedora' | 'debian';
+	cpus?: string;
+	memory?: string;
+	disk?: string;
+}
+
 const App: React.FC = () => {
 	const [instanceLists, setInstanceLists] = useState<InstanceLists>(
 		window.initialState || { active: [], deleted: [] }
 	);
 	const [instanceInfo, setInstanceInfo] = useState<MultipassInstanceInfo | null>(null);
+	const [multipassCapabilities, setMultipassCapabilities] = useState<MultipassCapabilities>(
+		window.multipassCapabilities || { supportsAlternativeDistros: false }
+	);
 
 	// Debug: Log initial state
 	console.log('App mounted. Initial state:', window.initialState);
@@ -45,6 +59,9 @@ const App: React.FC = () => {
 					break;
 				case 'instanceInfo':
 					setInstanceInfo(message.info);
+					break;
+				case 'multipassCapabilities':
+					setMultipassCapabilities(message.capabilities);
 					break;
 			}
 		};
@@ -70,6 +87,10 @@ const App: React.FC = () => {
 
 	const handleCreateProfileInstance = () => {
 		vscode.postMessage({ command: 'launchProfileInstance' });
+	};
+
+	const handleLaunchFromInlineForm = (config: InlineLaunchConfig) => {
+		vscode.postMessage({ command: 'launchInlineInstance', config });
 	};
 
 	const handleStartInstance = (name: string) => {
@@ -260,6 +281,8 @@ const App: React.FC = () => {
 			onCreateCustomInstance={handleCreateCustomInstance}
 			onCreateCloudInitInstance={handleCreateCloudInitInstance}
 			onCreateProfileInstance={handleCreateProfileInstance}
+			onLaunchFromInlineForm={handleLaunchFromInlineForm}
+			multipassCapabilities={multipassCapabilities}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}
 			onSuspendInstance={handleSuspendInstance}
