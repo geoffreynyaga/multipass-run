@@ -282,83 +282,16 @@ If the extension cannot locate the Multipass CLI:
 
 ## Security
 
-The extension touches your `~/.ssh/config`, generates a key pair, and runs
-commands inside guest VMs. The choices below are designed to fail safely if
-something unexpected happens (manual edits to your SSH config, a multipass
-binary that has been moved, a guest that already has the public key, etc.).
+The extension edits your `~/.ssh/config`, generates a key pair, and runs
+commands inside guest VMs. Key safeguards:
 
-### SSH keys
-
-- **Default key type is ed25519.** Smaller, faster, and equally strong
-  compared to RSA-4096. Supported by OpenSSH 6.5+ on macOS, Linux, and
-  Windows 10 1803+.
-- **Existing `~/.ssh/multipass_id_rsa` is preserved.** If you already had a
-  legacy RSA key from an older version of the extension, it keeps being used
-  for new VMs so existing connections do not break.
-- **The public key is installed via `multipass transfer` + `sh -c`,** not by
-  interpolating its content into a shell string. Lines like
-  `bash -c "grep -F '<public-key>' ..."` are intentionally avoided to remove
-  one class of injection bugs.
-- **Idempotent installation.** The extension reads the guest's
-  `~/.ssh/authorized_keys` first and skips the transfer if the key is
-  already present.
-- **Last-VM cleanup prompt.** When you purge the last managed VM, the
-  extension offers to delete the multipass key pair from `~/.ssh/`. You can
-  decline once, or pick "Don't ask again" to silence future prompts.
-
-### SSH config (`~/.ssh/config`)
-
-- **Bracket markers** wrap each managed entry:
-
-  ```
-  # >>> multipass-run: my-vm
-  Host multipass-my-vm
-    HostName 10.0.0.5
-    User ubuntu
-    IdentityFile ~/.ssh/multipass_id_ed25519
-    StrictHostKeyChecking accept-new
-    LogLevel ERROR
-  # <<< multipass-run: my-vm
-  ```
-
-  Removal targets only the bracketed range, so manual edits anywhere else in
-  your config are untouched and scribbles inside a managed block do not
-  prevent the extension from cleaning it up later.
-- **`StrictHostKeyChecking accept-new`** instead of the previous
-  `StrictHostKeyChecking no` + `UserKnownHostsFile /dev/null`. The first
-  connection trusts the host key; subsequent connections detect tampering.
-- **Migration of legacy entries.** Older `# Multipass instance: <name>`
-  comment markers are auto-rewrapped with bracket markers on every config
-  write. Deprecated options (`StrictHostKeyChecking no`,
-  `UserKnownHostsFile /dev/null`) inside any managed block are normalized in
-  place.
-- **Orphaned-entry pruning.** The extension scrubs managed blocks whose
-  instance name is not in `multipass list` (e.g. VMs deleted via the
-  multipass CLI directly). Runs once on activation and on demand via the
-  `Multipass: Prune Orphaned SSH Entries` command.
-- **`known_hosts` cleanup.** Purging a VM also runs
-  `ssh-keygen -R multipass-<name>` so a future VM with the same name does
-  not surprise OpenSSH.
-
-### Process boundary
-
-- **Guest commands use `multipass exec` + `multipass transfer`,** not a
-  shell string. Instance names are validated to alphanumeric + hyphen +
-  underscore at creation time.
-- **Multipass binary discovery** walks a known list of install locations
-  (Snap, `/usr/local/bin`, Homebrew, the macOS `.pkg` canonical path, the
-  Windows installer default) and falls back to a PATH lookup so the extension
-  keeps working when VS Code is launched from Spotlight without an inherited
-  shell PATH.
-
-### Known limitations
-
-- Permissions on the SSH config and key files are set to `0600` / `0700`.
-  Windows ignores POSIX bits — the OpenSSH-for-Windows ACL model handles
-  the equivalent guarantee.
-- The extension assumes the default `ubuntu` user inside Multipass guests.
-  Cloud-init configurations that rename the primary user are not yet
-  supported.
+| Area | What we do |
+|------|------------|
+| SSH key | Default ed25519 (existing `multipass_id_rsa` is kept for backward compat). Last-VM purge offers to remove the key pair. |
+| Config block | Wrapped in `# >>> multipass-run: <name>` / `# <<<` markers so removal is robust against manual edits and scribbles. Legacy entries auto-migrated. |
+| Host-key policy | `StrictHostKeyChecking accept-new` with the standard `known_hosts` (replaces the old `no` + `/dev/null`). Purge also runs `ssh-keygen -R`. |
+| Guest key install | `multipass transfer` + idempotent append — no shell interpolation of the public key. |
+| Hygiene | Orphaned config blocks for VMs that no longer exist are auto-pruned at activation and via the `Multipass: Prune Orphaned SSH Entries` command. |
 
 ## Known limitations
 
