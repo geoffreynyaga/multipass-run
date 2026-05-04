@@ -15,6 +15,9 @@ interface InstanceListProps {
 	debianIconUri: string;
 	debianDarkIconUri: string;
 	onCreateInstance: () => void;
+	onCreateCustomInstance: () => void;
+	onCreateCloudInitInstance: () => void;
+	onCreateProfileInstance: () => void;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
 	onSuspendInstance: (name: string) => void;
@@ -39,6 +42,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	debianIconUri,
 	debianDarkIconUri,
 	onCreateInstance,
+	onCreateCustomInstance,
+	onCreateCloudInitInstance,
+	onCreateProfileInstance,
 	onStartInstance,
 	onStopInstance,
 	onSuspendInstance,
@@ -57,6 +63,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
 	const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; instanceName: string; state: string } | null>(null);
 	const [copiedInstance, setCopiedInstance] = React.useState<string | null>(null);
+	const [showEmptyOptions, setShowEmptyOptions] = React.useState(false);
 
 	// Helper function to get the correct icon based on OS
 	const getDistroIcon = (release: string, isDark: boolean): string | null => {
@@ -157,81 +164,262 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return () => window.removeEventListener('click', handleClick);
 	}, []);
 
-	if (active.length === 0 && deleted.length === 0) {
-		return (
+	const EmptyHero = () => (
+		<div style={{ width: '100%', maxWidth: '320px', paddingTop: '56px' }}>
 			<div
+				aria-hidden="true"
 				style={{
-					padding: '60px 20px',
-					textAlign: 'center',
-					display: 'flex',
-					flexDirection: 'column',
-					alignItems: 'center',
-					justifyContent: 'center',
-					minHeight: '300px',
-					fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+					width: '58px',
+					height: '58px',
+					borderRadius: '50%',
+					background: 'linear-gradient(135deg, #ff7336, #e95420)',
+					margin: '0 0 24px',
+					boxShadow: '0 10px 24px rgba(233,84,32,0.24)'
+				}}
+			/>
+			<h2
+				style={{
+					fontSize: '24px',
+					lineHeight: 1.45,
+					fontWeight: 600,
+					margin: '0 0 12px',
+					color: 'var(--vscode-foreground)',
+					letterSpacing: 0
 				}}
 			>
-				{/* Icon */}
-				<div style={{ marginBottom: '24px' }}>
-					<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<circle cx="32" cy="32" r="28" stroke="#E95420" strokeWidth="2" fill="none" opacity="0.3"/>
-						<path d="M32 20V36M32 44H32.02" stroke="#E95420" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-					</svg>
-				</div>
+				Your pocket cloud,<br />right in VS Code.
+			</h2>
+			<p
+				style={{
+					margin: '0 0 24px',
+					fontSize: '14px',
+					color: 'var(--vscode-descriptionForeground)',
+					lineHeight: 1.5,
+					fontWeight: 400
+				}}
+			>
+				Spin up Multipass Ubuntu VMs with cloud-init, mounts, and SSH when you need them.
+			</p>
+		</div>
+	);
 
-				{/* Heading */}
-				<h2
+	if (active.length === 0 && deleted.length === 0) {
+		if (!showEmptyOptions) {
+			return (
+				<div
 					style={{
-						fontSize: '20px',
-						fontWeight: 300,
-						marginBottom: '12px',
-						color: 'var(--vscode-foreground)',
+						minHeight: '100vh',
+						padding: '24px 30px 20px',
+						display: 'flex',
+						flexDirection: 'column',
+						alignItems: 'center',
+						justifyContent: 'flex-start',
 						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
 					}}
 				>
-					No instances found
-				</h2>
+					<div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'stretch', width: '100%' }}>
+						<EmptyHero />
+						<button
+							type="button"
+							onClick={onCreateInstance}
+							style={{
+								background: '#E95420',
+								color: '#ffffff',
+								border: 'none',
+								borderRadius: '3px',
+								padding: '13px 28px',
+								cursor: 'pointer',
+								fontSize: '14px',
+								fontWeight: 600,
+								fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
+								minWidth: '222px',
+								minHeight: '48px',
+								width: '100%'
+							}}
+							onMouseOver={(e) => {
+								e.currentTarget.style.background = '#C7401A';
+							}}
+							onMouseOut={(e) => {
+								e.currentTarget.style.background = '#E95420';
+							}}
+						>
+							Quick install LTS
+						</button>
+						<button
+							type="button"
+							onClick={() => setShowEmptyOptions(true)}
+							style={{
+								marginTop: '24px',
+								background: 'transparent',
+								border: 'none',
+								color: 'var(--vscode-descriptionForeground)',
+								cursor: 'pointer',
+								fontSize: '13px',
+								fontWeight: 500,
+								fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
+								textDecoration: 'underline',
+								textUnderlineOffset: '4px'
+							}}
+						>
+							More options...
+						</button>
+					</div>
+					<div
+						style={{
+							width: 'calc(100% + 60px)',
+							margin: '0 -30px',
+							padding: '14px 22px 0',
+							borderTop: '1px solid rgba(127,127,127,0.13)',
+							color: 'var(--vscode-descriptionForeground)',
+							fontSize: '12px',
+							display: 'flex',
+							alignItems: 'center',
+							gap: '10px',
+							opacity: 0.75
+						}}
+					>
+						<span aria-hidden="true">✓</span>
+						<span>Multipass detected</span>
+					</div>
+				</div>
+			);
+		}
 
-				{/* Description */}
-				<p
-					style={{
-						marginBottom: '32px',
-						fontSize: '14px',
-						color: 'var(--vscode-descriptionForeground)',
-						maxWidth: '400px',
-						lineHeight: '1.5',
+		const quickActionStyle: React.CSSProperties = {
+			width: '100%',
+			display: 'grid',
+			gridTemplateColumns: '30px 1fr 16px',
+			alignItems: 'center',
+			gap: '12px',
+			padding: '9px 0',
+			background: 'transparent',
+			border: 'none',
+			color: 'var(--vscode-foreground)',
+			cursor: 'pointer',
+			textAlign: 'left',
+			fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+		};
+		const iconBoxStyle: React.CSSProperties = {
+			width: '30px',
+			height: '30px',
+			borderRadius: '4px',
+			display: 'flex',
+			alignItems: 'center',
+			justifyContent: 'center',
+			background: 'rgba(255,255,255,0.04)',
+			color: 'var(--vscode-descriptionForeground)'
+		};
+		const emptyOptionLabelStyle: React.CSSProperties = {
+			display: 'block',
+			fontSize: '13px',
+			fontWeight: 500,
+			color: 'var(--vscode-foreground)',
+			lineHeight: 1.25
+		};
+		const emptyOptionDescriptionStyle: React.CSSProperties = {
+			display: 'block',
+			marginTop: '2px',
+			fontSize: '12px',
+			color: 'var(--vscode-descriptionForeground)',
+			lineHeight: 1.25
+		};
+		const chevronRight = (
+			<svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+				<path d="M5.25 3.5L8.75 7L5.25 10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+			</svg>
+		);
+
+		return (
+			<div
+				style={{
+					minHeight: '100vh',
+						padding: '24px 30px 36px',
+						display: 'flex',
+						flexDirection: 'column',
 						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-						fontWeight: 300
-					}}
-				>
-					Get started by creating your first Multipass instance
-				</p>
+						background: 'linear-gradient(135deg, transparent 0 58%, rgba(233,84,32,0.16) 58% 100%)'
+				}}
+			>
+				<EmptyHero />
 
-				{/* Button */}
 				<button
+					type="button"
 					onClick={onCreateInstance}
 					style={{
 						background: '#E95420',
 						color: '#ffffff',
 						border: 'none',
-						padding: '12px 32px',
+						borderRadius: '3px',
+						padding: '11px 18px',
 						cursor: 'pointer',
-						fontSize: '14px',
-						fontWeight: 400,
+						fontSize: '13px',
+						fontWeight: 600,
 						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
-						borderRadius: '2px',
-						transition: 'background-color 0.2s ease',
-						boxShadow: 'none'
+						display: 'inline-flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						gap: '8px',
+						minHeight: '40px',
+						marginBottom: '28px',
+						width: '100%'
 					}}
 					onMouseOver={(e) => {
-						e.currentTarget.style.background = '#C73E1A';
+						e.currentTarget.style.background = '#C7401A';
 					}}
 					onMouseOut={(e) => {
 						e.currentTarget.style.background = '#E95420';
 					}}
 				>
-					Create Instance
+					<span style={{ fontSize: '18px', lineHeight: 1 }}>+</span>
+					<span>Quick install LTS</span>
 				</button>
+
+				<div
+					style={{
+						borderTop: '1px solid rgba(127,127,127,0.13)',
+						paddingTop: '22px'
+					}}
+				>
+					<div
+						style={{
+							fontSize: '11px',
+							textTransform: 'uppercase',
+							letterSpacing: '2px',
+							color: 'var(--vscode-descriptionForeground)',
+							fontWeight: 700,
+							marginBottom: '18px'
+						}}
+					>
+						Other options
+					</div>
+
+					<div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+						<button type="button" style={quickActionStyle} onClick={onCreateCustomInstance}>
+							<span style={iconBoxStyle}>☼</span>
+							<span>
+								<span style={emptyOptionLabelStyle}>Configure a custom instance</span>
+								<span style={emptyOptionDescriptionStyle}>Pick CPU, RAM, disk, image</span>
+							</span>
+							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
+						</button>
+						<button type="button" style={quickActionStyle} onClick={onCreateCloudInitInstance}>
+							<span style={iconBoxStyle}>▣</span>
+							<span>
+								<span style={emptyOptionLabelStyle}>Open cloud-init YAML</span>
+								<span style={emptyOptionDescriptionStyle}>Edit, validate, then launch</span>
+							</span>
+							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
+						</button>
+						<button type="button" style={quickActionStyle} onClick={onCreateProfileInstance}>
+							<span style={iconBoxStyle}>□</span>
+							<span>
+								<span style={emptyOptionLabelStyle}>Your profiles</span>
+								<span style={emptyOptionDescriptionStyle}>Reusable Multipass configurations</span>
+							</span>
+							<span style={{ color: 'var(--vscode-descriptionForeground)' }}>{chevronRight}</span>
+						</button>
+					</div>
+				</div>
 			</div>
 		);
 	}

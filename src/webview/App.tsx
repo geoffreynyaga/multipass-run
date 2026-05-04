@@ -60,6 +60,18 @@ const App: React.FC = () => {
 		vscode.postMessage({ command: 'launchInstance' });
 	};
 
+	const handleCreateCustomInstance = () => {
+		vscode.postMessage({ command: 'launchCustomInstance' });
+	};
+
+	const handleCreateCloudInitInstance = () => {
+		vscode.postMessage({ command: 'launchCloudInitInstance' });
+	};
+
+	const handleCreateProfileInstance = () => {
+		vscode.postMessage({ command: 'launchProfileInstance' });
+	};
+
 	const handleStartInstance = (name: string) => {
 		vscode.postMessage({ command: 'startInstance', instanceName: name });
 	};
@@ -245,6 +257,9 @@ const App: React.FC = () => {
 			debianIconUri={window.debianIconUri || ''}
 			debianDarkIconUri={window.debianDarkIconUri || ''}
 			onCreateInstance={handleCreateInstance}
+			onCreateCustomInstance={handleCreateCustomInstance}
+			onCreateCloudInitInstance={handleCreateCloudInitInstance}
+			onCreateProfileInstance={handleCreateProfileInstance}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}
 			onSuspendInstance={handleSuspendInstance}

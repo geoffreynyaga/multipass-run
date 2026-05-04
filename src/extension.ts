@@ -272,6 +272,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				}
 			} else if (message.command === 'launchInstance') {
 				await this.createDefaultInstance();
+			} else if (message.command === 'launchCustomInstance') {
+				await this.createDetailedInstance();
+			} else if (message.command === 'launchCloudInitInstance') {
+				vscode.window.showInformationMessage('Cloud-init launches are coming soon.');
+			} else if (message.command === 'launchProfileInstance') {
+				vscode.window.showInformationMessage('Profile launches are coming soon.');
 			} else if (message.command === 'deleteInstance') {
 				console.log('Extension received deleteInstance command for:', message.instanceName);
 
