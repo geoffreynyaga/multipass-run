@@ -2,18 +2,34 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 
-import { MultipassService, createDefaultInstance, createDetailedInstance, launchInstance } from './multipassService';
-
+import { MultipassService } from './multipassService';
 import { MULTIPASS_PATHS } from './utils/constants';
 import { WebviewContent } from './webviewContent';
+import { createDefaultInstance } from './commands/launch/createDefaultInstance';
+import { createDetailedInstance } from './commands/launch/createDetailedInstance';
+import { launchInstance } from './commands/launch/launchInstance';
+
+// Extension utilities
+import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
+import { pollInstanceStatus } from './extension-utils/instancePolling';
+import {
+	PendingLaunchStore,
+	mergePendingIntoLists,
+	reconcilePending,
+} from './extension-utils/pendingLaunches';
+import { setupSSHConnection } from './extension-utils/sshSetup';
+import { TerminalManager } from './extension-utils/terminalManager';
 
 // WebView provider for the sidebar view
 class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _view?: vscode.WebviewView;
 	private _htmlInitialized = false;
-	private _instanceTerminals: Map<string, vscode.Terminal[]> = new Map();
+	public terminalManager = new TerminalManager();
 
-	constructor(private readonly _extensionUri: vscode.Uri) {}
+	constructor(
+		private readonly _extensionUri: vscode.Uri,
+		public readonly pendingStore: PendingLaunchStore
+	) {}
 
 	public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
 		this._view = webviewView;
@@ -42,6 +58,14 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				if (choice === 'Open Download Page') {
 					vscode.env.openExternal(vscode.Uri.parse('https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/'));
 				}
+			} else if (message.command === 'cancelPendingLaunch') {
+				await this.pendingStore.remove(message.instanceName);
+				await this.refresh();
+			} else if (message.command === 'retryPendingLaunch') {
+				// Drop the stuck entry, then re-enter the default launch flow.
+				await this.pendingStore.remove(message.instanceName);
+				await this.refresh();
+				await this.createDefaultInstance();
 			} else if (message.command === 'getInstanceInfo') {
 				const info = await MultipassService.getInstanceInfo(message.instanceName);
 				if (info && this._view) {
@@ -62,12 +86,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					});
 				}
 
-				const result = await MultipassService.stopInstance(message.instanceName);
-				if (result.success) {
-					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is stopping...`);
-					// Close associated terminals
-					this.closeInstanceTerminals(message.instanceName);
-					// Refresh after a short delay to show stopped state
+			const result = await MultipassService.stopInstance(message.instanceName);
+			if (result.success) {
+				vscode.window.showInformationMessage(`Instance '${message.instanceName}' is stopping...`);
+				// Close associated terminals
+				this.terminalManager.closeInstanceTerminals(message.instanceName);
+				// Refresh after a short delay to show stopped state
 					setTimeout(async () => {
 						await this.refresh();
 						vscode.window.showInformationMessage(`Instance '${message.instanceName}' stopped`);
@@ -101,12 +125,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					});
 				}
 
-				const result = await MultipassService.startInstance(message.instanceName);
-				if (result.success) {
-					vscode.window.showInformationMessage(`Instance '${message.instanceName}' is starting...`);
-					// Start polling for status updates
-					this.pollInstanceStatus(message.instanceName);
-				} else {
+			const result = await MultipassService.startInstance(message.instanceName);
+			if (result.success) {
+				vscode.window.showInformationMessage(`Instance '${message.instanceName}' is starting...`);
+				// Start polling for status updates
+				pollInstanceStatus(message.instanceName, () => this.refresh());
+			} else {
 					vscode.window.showErrorMessage(`Failed to start instance '${message.instanceName}': ${result.error}`);
 					// Refresh to clear the starting state
 					await this.refresh();
@@ -120,13 +144,15 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				terminal.show();
 
 				// Track this terminal for the instance
-				if (!this._instanceTerminals.has(message.instanceName)) {
-					this._instanceTerminals.set(message.instanceName, []);
-				}
-				this._instanceTerminals.get(message.instanceName)!.push(terminal);
+				this.terminalManager.addTerminal(message.instanceName, terminal);
 
 				// Try multipass paths in order
-				const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
+				// Build a command that tries each path until one succeeds
+				const shellCommands: string[] = [];
+				for (const path of MULTIPASS_PATHS) {
+					shellCommands.push(`${path} shell ${message.instanceName}`);
+				}
+				const shellCommand = shellCommands.join(' || ');
 				terminal.sendText(shellCommand);
 			} else if (message.command === 'startAndShellInstance') {
 				// Start the instance first
@@ -140,22 +166,24 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 							name: `Multipass: ${message.instanceName}`,
 							message: `Opening shell in instance '${message.instanceName}'...`
 						});
-						terminal.show();
+					terminal.show();
 
-						// Track this terminal for the instance
-						if (!this._instanceTerminals.has(message.instanceName)) {
-							this._instanceTerminals.set(message.instanceName, []);
+					// Track this terminal for the instance
+					this.terminalManager.addTerminal(message.instanceName, terminal);
+
+					// Try multipass paths in order
+						// Build a command that tries each path until one succeeds
+						const shellCommands: string[] = [];
+						for (const path of MULTIPASS_PATHS) {
+							shellCommands.push(`${path} shell ${message.instanceName}`);
 						}
-						this._instanceTerminals.get(message.instanceName)!.push(terminal);
+						const shellCommand = shellCommands.join(' || ');
+					terminal.sendText(shellCommand);
+				}, 3000); // Wait 3 seconds for instance to start
 
-						// Try multipass paths in order
-						const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
-						terminal.sendText(shellCommand);
-					}, 3000); // Wait 3 seconds for instance to start
-
-					// Start polling for status updates
-					this.pollInstanceStatus(message.instanceName);
-				} else {
+				// Start polling for status updates
+				pollInstanceStatus(message.instanceName, () => this.refresh());
+			} else {
 					vscode.window.showErrorMessage(`Failed to start instance '${message.instanceName}': ${result.error}`);
 					await this.refresh();
 				}
@@ -176,16 +204,18 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 									name: `Multipass: ${message.instanceName}`,
 									message: `Opening shell in instance '${message.instanceName}'...`
 								});
-								terminal.show();
+							terminal.show();
 
-								// Track this terminal for the instance
-								if (!this._instanceTerminals.has(message.instanceName)) {
-									this._instanceTerminals.set(message.instanceName, []);
+							// Track this terminal for the instance
+							this.terminalManager.addTerminal(message.instanceName, terminal);
+
+							// Try multipass paths in order
+								// Build a command that tries each path until one succeeds
+								const shellCommands: string[] = [];
+								for (const path of MULTIPASS_PATHS) {
+									shellCommands.push(`${path} shell ${message.instanceName}`);
 								}
-								this._instanceTerminals.get(message.instanceName)!.push(terminal);
-
-								// Try multipass paths in order
-								const shellCommand = MULTIPASS_PATHS.map(path => `${path} shell ${message.instanceName}`).join(' || ');
+								const shellCommand = shellCommands.join(' || ');
 								terminal.sendText(shellCommand);
 							}, 3000); // Wait 3 seconds for instance to start
 						}
@@ -230,10 +260,10 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					console.log('Delete result:', result);
 
 					if (result.success) {
-						vscode.window.showInformationMessage(`Instance '${message.instanceName}' deleted (can be recovered)`);
-						// Close associated terminals
-						this.closeInstanceTerminals(message.instanceName);
-						await this.refresh();
+				vscode.window.showInformationMessage(`Instance '${message.instanceName}' deleted (can be recovered)`);
+				// Close associated terminals
+				this.terminalManager.closeInstanceTerminals(message.instanceName);
+				await this.refresh();
 					} else {
 						vscode.window.showErrorMessage(`Failed to delete instance '${message.instanceName}': ${result.error}`);
 						await this.refresh();
@@ -255,10 +285,10 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					console.log('Purge result:', result);
 
 					if (result.success) {
-						vscode.window.showInformationMessage(`Instance '${message.instanceName}' permanently deleted`);
-						// Close associated terminals
-						this.closeInstanceTerminals(message.instanceName);
-						// Remove SSH config if it exists
+				vscode.window.showInformationMessage(`Instance '${message.instanceName}' permanently deleted`);
+				// Close associated terminals
+				this.terminalManager.closeInstanceTerminals(message.instanceName);
+				// Remove SSH config if it exists
 						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
 					} else {
@@ -313,10 +343,10 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 					const result = await MultipassService.deleteInstance(message.instanceName, true);
 					if (result.success) {
-						vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
-						// Close associated terminals
-						this.closeInstanceTerminals(message.instanceName);
-						// Remove SSH config if it exists
+				vscode.window.showInformationMessage(`Instance '${message.instanceName}' purged`);
+				// Close associated terminals
+				this.terminalManager.closeInstanceTerminals(message.instanceName);
+				// Remove SSH config if it exists
 						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
 					} else {
@@ -331,274 +361,23 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	public async createDefaultInstance(): Promise<void> {
-		let instanceName: string | undefined;
-		let imageRelease: string | undefined;
-		let enableSSH = false;
-
-		// createDefaultInstance now handles name prompt, image selection, and progress feedback
-		const result = await createDefaultInstance(undefined, {
-			onInstanceNameSelected: (name) => {
-				instanceName = name;
-			},
-			onImageSelected: (imageName, release) => {
-				imageRelease = release;
-			},
-			onSSHEnabled: (enabled) => {
-				enableSSH = enabled;
-			},
-			onLaunchStarted: async () => {
-				// Check if image is already downloaded to show appropriate state
-				if (this._view && instanceName && imageRelease) {
-					const currentLists = await MultipassService.getInstanceLists();
-					const isImageCached = await MultipassService.isImageAlreadyDownloaded(imageRelease);
-
-					const newInstance = {
-						name: instanceName,
-						state: isImageCached ? 'Creating' : 'Downloading Image',
-						ipv4: '',
-						release: imageRelease // Already includes OS name (e.g., "Fedora 43", "Ubuntu 24.04 LTS")
-					};
-					currentLists.active.push(newInstance);
-					this._view.webview.postMessage({
-						command: 'updateInstances',
-						instanceLists: currentLists
-					});
-				}
+		await handleCreateDefaultInstance(
+			this._view,
+			this.pendingStore,
+			(instanceName: string) => {
+				pollInstanceStatus(instanceName, () => this.refresh());
 			}
-		});
-
-		if (result) {
-			// Instance was created successfully
-			console.log('Instance created, checking SSH setup...', result);
-
-			// If SSH is enabled, set it up (don't wait for polling)
-			if (result.enableSSH) {
-				console.log(`SSH is enabled for ${result.instanceName}, setting up...`);
-				// Run SSH setup in background while polling happens
-				this.setupSSHConnection(result.instanceName).catch(err => {
-					console.error('SSH setup failed:', err);
-				});
-			} else {
-				console.log('SSH is not enabled for this instance');
-			}
-
-			// Poll for status in parallel (don't block SSH setup)
-			this.pollInstanceStatus(result.instanceName);
-		} else {
-			// Creation was cancelled or failed, just refresh
-			console.log('Instance creation was cancelled or failed');
-			await this.refresh();
-		}
+		);
 	}
 
 	public async createDetailedInstance(): Promise<void> {
-		const config = await createDetailedInstance();
-		if (config) {
-			// Check if image is already downloaded to show appropriate state
-			if (this._view) {
-				const currentLists = await MultipassService.getInstanceLists();
-				const isImageCached = await MultipassService.isImageAlreadyDownloaded(config.imageRelease);
-
-				const newInstance = {
-					name: config.name,
-					state: isImageCached ? 'Creating' : 'Downloading Image',
-					ipv4: '',
-					release: config.imageRelease // Already includes OS name (e.g., "Fedora 43", "Ubuntu 24.04 LTS")
-				};
-				currentLists.active.push(newInstance);
-				this._view.webview.postMessage({
-					command: 'updateInstances',
-					instanceLists: currentLists
-				});
+		await handleCreateDetailedInstance(
+			this._view,
+			this.pendingStore,
+			(instanceName: string) => {
+				pollInstanceStatus(instanceName, () => this.refresh());
 			}
-
-			// Launch the instance with the custom configuration and progress tracking
-			const result = await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: `Creating ${config.name}`,
-					cancellable: false
-				},
-				async (progress) => {
-					return await launchInstance({
-						name: config.name,
-						cpus: config.cpus,
-						memory: config.memory,
-						disk: config.disk,
-						image: config.image,
-						onProgress: (message) => {
-							progress.report({ message });
-						}
-					});
-				}
-			);
-
-			if (result.success) {
-				console.log('Detailed instance created, checking SSH setup...', config);
-
-				// If SSH is enabled, set it up (don't wait for polling)
-				if (config.enableSSH) {
-					console.log(`SSH is enabled for ${config.name}, setting up...`);
-					// Run SSH setup in background while polling happens
-					this.setupSSHConnection(config.name).catch(err => {
-						console.error('SSH setup failed:', err);
-					});
-				} else {
-					console.log('SSH is not enabled for this instance');
-				}
-
-				// Start polling for the instance status in parallel (don't block SSH setup)
-				this.pollInstanceStatus(config.name);
-			} else {
-				// If creation failed, refresh to remove the optimistic instance
-				vscode.window.showErrorMessage(`Failed to create instance: ${result.error}`);
-				await this.refresh();
-			}
-		}
-	}
-
-	private closeInstanceTerminals(instanceName: string): void {
-		const terminals = this._instanceTerminals.get(instanceName);
-		if (terminals) {
-			// Close all terminals for this instance
-			terminals.forEach(terminal => {
-				terminal.dispose();
-			});
-			// Clear the array
-			this._instanceTerminals.delete(instanceName);
-		}
-	}
-
-	public handleTerminalClosed(terminal: vscode.Terminal): void {
-		// Remove this terminal from our tracking
-		for (const [instanceName, terminals] of this._instanceTerminals.entries()) {
-			const index = terminals.indexOf(terminal);
-			if (index !== -1) {
-				terminals.splice(index, 1);
-				// If no more terminals for this instance, remove the entry
-				if (terminals.length === 0) {
-					this._instanceTerminals.delete(instanceName);
-				}
-				break;
-			}
-		}
-	}
-
-	private async pollInstanceStatus(instanceName: string, maxAttempts: number = 60): Promise<void> {
-		// Don't refresh immediately - the optimistic update already added it
-		// Just start polling
-
-		let attempts = 0;
-		const pollInterval = setInterval(async () => {
-			attempts++;
-			const instances = await MultipassService.getInstances();
-			const instance = instances.find(i => i.name === instanceName);
-
-			if (instance && instance.state.toLowerCase() === 'running') {
-				clearInterval(pollInterval);
-				vscode.window.showInformationMessage(`Instance '${instanceName}' is now running`);
-				await this.refresh();
-			} else if (instance) {
-				// Instance exists but not running yet - refresh to show current state
-				await this.refresh();
-			} else if (attempts >= maxAttempts) {
-				clearInterval(pollInterval);
-				vscode.window.showWarningMessage(`Instance '${instanceName}' is taking longer than expected to start`);
-				await this.refresh();
-			}
-		}, 2000); // Poll every 2 seconds
-	}
-
-	private async setupSSHConnection(instanceName: string): Promise<void> {
-		try {
-			// Check if Remote-SSH extension is installed
-			const remoteSSHExtension = vscode.extensions.getExtension('ms-vscode-remote.remote-ssh');
-			if (!remoteSSHExtension) {
-				const install = await vscode.window.showWarningMessage(
-					'Remote-SSH extension is not installed. Would you like to install it?',
-					'Install',
-					'Cancel'
-				);
-				if (install === 'Install') {
-					await vscode.commands.executeCommand('workbench.extensions.installExtension', 'ms-vscode-remote.remote-ssh');
-					vscode.window.showInformationMessage('Please reload VS Code after the extension installs, then try again.');
-				}
-				return;
-			}
-
-			// Wait for instance to be running and get its IP
-			let attempts = 0;
-			const maxAttempts = 30;
-			let instanceIP = '';
-
-			vscode.window.showInformationMessage(`Waiting for instance '${instanceName}' to be ready...`);
-
-			while (attempts < maxAttempts) {
-				const instances = await MultipassService.getInstances();
-				const instance = instances.find(i => i.name === instanceName);
-
-				if (instance && instance.state.toLowerCase() === 'running' && instance.ipv4) {
-					instanceIP = instance.ipv4;
-					break;
-				}
-
-				await new Promise(resolve => setTimeout(resolve, 2000));
-				attempts++;
-			}
-
-			if (!instanceIP) {
-				vscode.window.showErrorMessage(
-					`Failed to setup SSH: Instance '${instanceName}' did not get an IP address`
-				);
-				return;
-			}
-
-			// Setup SSH configuration with progress
-			const sshResult = await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: `Setting up SSH for '${instanceName}'`,
-					cancellable: false
-				},
-				async (progress) => {
-					progress.report({ message: `Configuring SSH at ${instanceIP}...` });
-					return await MultipassService.setupSSHForInstance(instanceName, instanceIP);
-				}
-			);
-
-			if (sshResult.success) {
-				const sshKeyPath = require('path').join(
-					require('os').homedir(),
-					'.ssh',
-					'multipass_id_rsa'
-				);
-				const sshCommand = `ssh ubuntu@${instanceIP} -i ${sshKeyPath}`;
-				const sshHostName = `multipass-${instanceName}`;
-
-				// Show success message with options
-				const selection = await vscode.window.showInformationMessage(
-					`SSH configured successfully for '${instanceName}'!\n\nYou can now connect using Remote-SSH with host: ${sshHostName}`,
-					{ modal: true },
-					'Connect Now',
-					'Show in Remote-SSH'
-				);
-
-				if (selection === 'Connect Now') {
-					await MultipassService.connectToInstanceViaSSH(instanceName);
-				} else if (selection === 'Show in Remote-SSH') {
-					// Open Remote-SSH extension view
-					await vscode.commands.executeCommand('opensshremotes.focus');
-				}
-			} else {
-				vscode.window.showErrorMessage(
-					`Failed to setup SSH for '${instanceName}': ${sshResult.error}`
-				);
-			}
-		} catch (error: any) {
-			vscode.window.showErrorMessage(
-				`Error setting up SSH: ${error.message}`
-			);
-		}
+		);
 	}
 
 	public async refresh(): Promise<void> {
@@ -606,17 +385,26 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 
-		const instanceLists = await MultipassService.getInstanceLists();
+		const rawLists = await MultipassService.getInstanceLists();
+
+		// Reconcile pending launches against the real list. Drop ones that have
+		// landed; flag ones that have been hanging past STUCK_THRESHOLD_MS.
+		if (!rawLists.error) {
+			await reconcilePending(this.pendingStore, rawLists);
+		}
+		const merged = rawLists.error
+			? rawLists
+			: mergePendingIntoLists(rawLists, this.pendingStore.list());
 
 		// If webview HTML is not set yet, set it with initial data
 		if (!this._htmlInitialized) {
-			this._view.webview.html = WebviewContent.getHtml(instanceLists, this._view.webview, this._extensionUri);
+			this._view.webview.html = WebviewContent.getHtml(merged, this._view.webview, this._extensionUri);
 			this._htmlInitialized = true;
 		} else {
 			// Otherwise, just update the React state via message
 			this._view.webview.postMessage({
 				command: 'updateInstances',
-				instanceLists: instanceLists
+				instanceLists: merged
 			});
 		}
 	}
@@ -630,8 +418,13 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "multipass-run" is now active!');
 
+	// Persist in-flight launches across reloads so the sidebar can render
+	// "Downloading Image" / "Stuck" rows even when `multipass list` does not
+	// know about them yet.
+	const pendingStore = new PendingLaunchStore(context.globalState);
+
 	// Register the webview view provider
-	const provider = new MultipassViewProvider(context.extensionUri);
+	const provider = new MultipassViewProvider(context.extensionUri, pendingStore);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
 	);
@@ -639,7 +432,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Listen for terminal close events to clean up our tracking
 	context.subscriptions.push(
 		vscode.window.onDidCloseTerminal(terminal => {
-			provider.handleTerminalClosed(terminal);
+			provider.terminalManager.handleTerminalClosed(terminal);
 		})
 	);
 

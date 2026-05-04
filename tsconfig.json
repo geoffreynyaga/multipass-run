@@ -16,5 +16,14 @@
 		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
 		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
-	}
+	},
+	"exclude": [
+		"node_modules",
+		"out",
+		"dist",
+		"**/*.spec.ts",
+		"**/*.spec.tsx",
+		"src/test/jest-mocks/**",
+		"src/extension-utils/__tests__/**"
+	]
 }
