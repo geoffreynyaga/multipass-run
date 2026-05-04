@@ -476,30 +476,30 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('multipass-run.createInstanceMenu', async () => {
 			const options = [
 				{
-					label: '$(add) Create Instance',
-					description: 'Create a new instance with default settings',
+					label: '$(add) Default',
+					description: 'Ubuntu LTS, 1 CPU / 1G / 5G',
 					id: 'create-default'
 				},
 				{
-					label: '$(file) Create from Profile',
-					description: 'Create instance using a saved profile',
-					id: 'create-profile'
-				},
-				{
-					label: '$(settings-gear) Create Detailed',
-					description: 'Create instance with custom configuration',
+					label: '$(settings-gear) Custom',
+					description: 'Pick CPU, RAM, disk',
 					id: 'create-detailed'
 				},
 				{
-					label: '$(file-code) Create from YAML',
-					description: 'Create instance from a YAML configuration file',
-					id: 'create-yaml'
+					label: '$(file-code) Cloud-init',
+					description: 'Launch from cloud-init YAML',
+					id: 'create-cloud-init'
+				},
+				{
+					label: '$(file) Profile',
+					description: 'Use a saved configuration',
+					id: 'create-profile'
 				}
 			];
 
 			const selected = await vscode.window.showQuickPick(options, {
-				placeHolder: 'Select instance creation method',
-				title: 'Create Multipass Instance'
+				placeHolder: 'Pick a launch method',
+				title: 'Launch Multipass Instance'
 			});
 
 			if (selected) {
@@ -508,13 +508,13 @@ export function activate(context: vscode.ExtensionContext) {
 						await provider.createDefaultInstance();
 						break;
 					case 'create-profile':
-						vscode.window.showInformationMessage('Create from Profile - Coming soon!');
+						vscode.window.showInformationMessage('Profile launches are coming soon.');
 						break;
-				case 'create-detailed':
-					await provider.createDetailedInstance();
-					break;
-					case 'create-yaml':
-						vscode.window.showInformationMessage('Create from YAML - Coming soon!');
+					case 'create-detailed':
+						await provider.createDetailedInstance();
+						break;
+					case 'create-cloud-init':
+						vscode.window.showInformationMessage('Cloud-init launches are coming soon.');
 						break;
 				}
 			}
