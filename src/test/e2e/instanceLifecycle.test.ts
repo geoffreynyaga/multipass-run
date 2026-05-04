@@ -23,7 +23,7 @@ suite('E2E: Instance Lifecycle', () => {
 	});
 
 	suite('Instance Start/Stop', () => {
-		test('Should list running and stopped instances separately', async function() {
+		test('Should list running and stopped instances separately', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -48,7 +48,7 @@ suite('E2E: Instance Lifecycle', () => {
 			}
 		});
 
-		test('Should get detailed instance info', async function() {
+		test('Should get detailed instance info', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -76,7 +76,7 @@ suite('E2E: Instance Lifecycle', () => {
 	});
 
 	suite('Instance Delete and Recovery', () => {
-		test('Should move instance to deleted list after delete', async function() {
+		test('Should move instance to deleted list after delete', async function(this: Mocha.Context) {
 			this.timeout(15000);
 
 			// This test would require creating an instance first
@@ -89,7 +89,7 @@ suite('E2E: Instance Lifecycle', () => {
 			assert.strictEqual(afterDeleteState, 'Deleted', 'Instance should be in deleted state');
 		});
 
-		test('Should permanently remove instance after purge', async function() {
+		test('Should permanently remove instance after purge', async function(this: Mocha.Context) {
 			this.timeout(15000);
 
 			// Test purge logic
@@ -99,7 +99,7 @@ suite('E2E: Instance Lifecycle', () => {
 			assert.ok(command.includes('purge'), 'Purge command should include purge flag');
 		});
 
-		test('Should recover deleted instance', async function() {
+		test('Should recover deleted instance', async function(this: Mocha.Context) {
 			this.timeout(15000);
 
 			// Test recovery logic
@@ -148,7 +148,7 @@ suite('E2E: Instance Lifecycle', () => {
 	});
 
 	suite('Image Management', () => {
-		test('Should fetch available images', async function() {
+		test('Should fetch available images', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -184,7 +184,7 @@ suite('E2E: Instance Lifecycle', () => {
 			}
 		});
 
-		test('Should detect cached vs uncached images', async function() {
+		test('Should detect cached vs uncached images', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {

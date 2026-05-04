@@ -3,3 +3,12 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+
+claude-design/
+
+pnpm-lock.yaml
+
+.fallow/
+
+.DS_Store

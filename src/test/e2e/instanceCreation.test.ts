@@ -9,7 +9,7 @@ import { MultipassService } from '../../multipassService';
  */
 suite('E2E: Instance Creation', () => {
 	suite('Image Download Detection', () => {
-		test('Should detect if image is already cached', async function() {
+		test('Should detect if image is already cached', async function(this: Mocha.Context) {
 			this.timeout(10000); // Increase timeout for network operations
 
 			try {
@@ -46,7 +46,7 @@ suite('E2E: Instance Creation', () => {
 			}
 		});
 
-		test('Should show "Downloading Image" state for uncached image', async function() {
+		test('Should show "Downloading Image" state for uncached image', async function(this: Mocha.Context) {
 			this.timeout(5000);
 
 			// Simulate uncached image scenario
@@ -56,7 +56,7 @@ suite('E2E: Instance Creation', () => {
 			assert.strictEqual(expectedState, 'Downloading Image', 'Should show downloading state for uncached image');
 		});
 
-		test('Should show "Creating" state for cached image', async function() {
+		test('Should show "Creating" state for cached image', async function(this: Mocha.Context) {
 			this.timeout(5000);
 
 			// Simulate cached image scenario
@@ -68,7 +68,7 @@ suite('E2E: Instance Creation', () => {
 	});
 
 	suite('Instance Name Conflict Detection', () => {
-		test('Should detect existing instance names', async function() {
+		test('Should detect existing instance names', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -93,7 +93,7 @@ suite('E2E: Instance Creation', () => {
 			}
 		});
 
-		test('Should prevent duplicate instance names (case-insensitive)', async function() {
+		test('Should prevent duplicate instance names (case-insensitive)', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -118,7 +118,7 @@ suite('E2E: Instance Creation', () => {
 	});
 
 	suite('Instance List Retrieval', () => {
-		test('Should retrieve instance lists', async function() {
+		test('Should retrieve instance lists', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
@@ -136,7 +136,7 @@ suite('E2E: Instance Creation', () => {
 			}
 		});
 
-		test('Should handle empty instance list', async function() {
+		test('Should handle empty instance list', async function(this: Mocha.Context) {
 			this.timeout(10000);
 
 			try {
