@@ -68,25 +68,20 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 		);
 
 		if (sshResult.success) {
-			const sshKeyPath = require('path').join(
-				require('os').homedir(),
-				'.ssh',
-				'multipass_id_rsa'
-			);
-			const sshCommand = `ssh ubuntu@${instanceIP} -i ${sshKeyPath}`;
 			const sshHostName = `multipass-${instanceName}`;
 
 			// Show success message with options
 			const selection = await vscode.window.showInformationMessage(
 				`SSH configured successfully for '${instanceName}'!\n\nYou can now connect using Remote-SSH with host: ${sshHostName}`,
 				{ modal: true },
-				'Connect Now',
-				'Show in Remote-SSH'
+				'Connect now',
+				'Open Remote-SSH View',
+				'Cancel'
 			);
 
-			if (selection === 'Connect Now') {
+			if (selection === 'Connect now') {
 				await MultipassService.connectToInstanceViaSSH(instanceName);
-			} else if (selection === 'Show in Remote-SSH') {
+			} else if (selection === 'Open Remote-SSH View') {
 				await MultipassService.openRemoteSSHView();
 			}
 		} else {

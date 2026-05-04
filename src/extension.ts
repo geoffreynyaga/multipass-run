@@ -180,6 +180,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				}
 				const shellCommand = shellCommands.join(' || ');
 				terminal.sendText(shellCommand);
+			} else if (message.command === 'setupSSHInstance') {
+				await setupSSHConnection(message.instanceName);
 			} else if (message.command === 'startAndShellInstance') {
 				// Start the instance first
 				const result = await MultipassService.startInstance(message.instanceName);

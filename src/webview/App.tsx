@@ -76,6 +76,10 @@ const App: React.FC = () => {
 		vscode.postMessage({ command: 'shellInstance', instanceName: name });
 	};
 
+	const handleSetupSSHInstance = (name: string) => {
+		vscode.postMessage({ command: 'setupSSHInstance', instanceName: name });
+	};
+
 	const handleStartAndShellInstance = (name: string) => {
 		vscode.postMessage({ command: 'startAndShellInstance', instanceName: name });
 	};
@@ -245,6 +249,7 @@ const App: React.FC = () => {
 			onStopInstance={handleStopInstance}
 			onSuspendInstance={handleSuspendInstance}
 			onShellInstance={handleShellInstance}
+			onSetupSSHInstance={handleSetupSSHInstance}
 			onStartAndShellInstance={handleStartAndShellInstance}
 			onRecoverAndShellInstance={handleRecoverAndShellInstance}
 			onDeleteInstance={handleDeleteInstance}

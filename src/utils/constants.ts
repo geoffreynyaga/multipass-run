@@ -6,3 +6,5 @@ export const MULTIPASS_PATHS = [
 	'/Library/Application Support/com.canonical.multipass/bin/multipass',   // macOS pkg installer canonical location
 	'C:\\Program Files\\Multipass\\bin\\multipass.exe'                      // Windows installer default
 ];
+
+export const MAX_VM_NAME_DISPLAY_CHARS = 24;

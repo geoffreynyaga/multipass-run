@@ -2,6 +2,7 @@ import { InstanceLists, MultipassInstanceInfo } from '../../multipassService';
 import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
 import { InstanceDetails } from './InstanceDetails';
+import { MAX_VM_NAME_DISPLAY_CHARS } from '../../utils/constants';
 import React from 'react';
 
 interface InstanceListProps {
@@ -18,6 +19,7 @@ interface InstanceListProps {
 	onStopInstance: (name: string) => void;
 	onSuspendInstance: (name: string) => void;
 	onShellInstance: (name: string) => void;
+	onSetupSSHInstance: (name: string) => void;
 	onStartAndShellInstance: (name: string) => void;
 	onRecoverAndShellInstance: (name: string) => void;
 	onDeleteInstance: (name: string) => void;
@@ -41,6 +43,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onStopInstance,
 	onSuspendInstance,
 	onShellInstance,
+	onSetupSSHInstance,
 	onStartAndShellInstance,
 	onRecoverAndShellInstance,
 	onDeleteInstance,
@@ -260,10 +263,40 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return { ...baseStyle, color: '#f59e0b', animation: 'pulse 1.5s ease-in-out infinite' };
 	};
 
-	const truncateName = (name: string, maxLength: number = 12): string => {
+	const truncateName = (name: string, maxLength: number = MAX_VM_NAME_DISPLAY_CHARS): string => {
 		if (name.length <= maxLength) return name;
-		return name.substring(0, maxLength) + ' . . . ';
+		return name.substring(0, maxLength - 1) + '…';
 	};
+
+	const nameStyle = (release: string, running = false): React.CSSProperties => ({
+		fontSize: '14px',
+		fontWeight: 300,
+		color: running ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
+		fontFamily: getDistributionFont(release),
+		minWidth: 0,
+		maxWidth: '160px',
+		overflow: 'hidden',
+		textOverflow: 'ellipsis',
+		whiteSpace: 'nowrap'
+	});
+
+	const Chevron: React.FC<{ expanded: boolean }> = ({ expanded }) => (
+		<svg
+			width="14"
+			height="14"
+			viewBox="0 0 14 14"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			style={{
+				transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+				transition: 'transform 0.15s ease',
+				color: '#6b7280'
+			}}
+			aria-hidden="true"
+		>
+			<path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+		</svg>
+	);
 
 	// Order active instances: running -> suspended -> stopped -> others
 	const orderPriority: Record<string, number> = {
@@ -296,22 +329,24 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 			<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
 				{orderedActive.map(instance => {
 					const isExpanded = expandedInstance === instance.name;
-					const isRunning = instance.state.toLowerCase() === 'running';
-					const showBorder = !(isExpanded && isRunning);
+					const stateLower = instance.state.toLowerCase();
+					const isRunning = stateLower === 'running';
+					const canExpand = stateLower === 'running' || stateLower === 'stopped' || stateLower === 'suspended';
+					const showBorder = !(isExpanded && canExpand);
 
 					return (
 						<li key={instance.name} style={{ margin: 0 }}>
 							<div
-								onClick={() => isRunning && toggleExpand(instance.name)}
+								onClick={() => canExpand && toggleExpand(instance.name)}
 								onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
 								style={{
 									padding: '12px 0',
 									borderBottom: showBorder ? '1px solid rgba(127,127,127,0.25)' : 'none',
-									cursor: isRunning ? 'pointer' : 'default',
+									cursor: canExpand ? 'pointer' : 'default',
 									transition: 'border-color 0.15s ease',
 								}}
 								onMouseOver={(e) => {
-									if (isRunning && showBorder) {
+									if (canExpand && showBorder) {
 										e.currentTarget.style.borderBottom = '1px solid rgba(127,127,127,0.4)';
 									}
 								}}
@@ -321,18 +356,37 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									}
 								}}
 							>
-								{(instance.state.toLowerCase() === 'stopped' || instance.state.toLowerCase() === 'suspended') ? (
+								{(stateLower === 'stopped' || stateLower === 'suspended') ? (
 									<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-										<div
-											style={{
-												fontSize: '14px',
-												fontWeight: 300,
-												color: 'var(--vscode-descriptionForeground)',
-												fontFamily: getDistributionFont(instance.release)
-											}}
-											title={instance.name}
-										>
-											{truncateName(instance.name)}
+										<div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+											<button
+												type="button"
+												aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+												title={isExpanded ? 'Collapse details' : 'Expand details'}
+												onClick={(e) => {
+													e.stopPropagation();
+													toggleExpand(instance.name);
+												}}
+												style={{
+													background: 'transparent',
+													border: 'none',
+													padding: 0,
+													width: '18px',
+													height: '18px',
+													display: 'flex',
+													alignItems: 'center',
+													justifyContent: 'center',
+													cursor: 'pointer'
+												}}
+											>
+												<Chevron expanded={isExpanded} />
+											</button>
+											<div
+												style={nameStyle(instance.release)}
+												title={instance.name}
+											>
+												{truncateName(instance.name)}
+											</div>
 										</div>
 										<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 											<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -355,12 +409,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 										<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
 											<div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 												<div
-													style={{
-														fontSize: '14px',
-														fontWeight: 300,
-														color: isRunning ? 'var(--vscode-editor-foreground)' : 'var(--vscode-descriptionForeground)',
-														fontFamily: getDistributionFont(instance.release)
-													}}
+													style={nameStyle(instance.release, isRunning)}
 													title={instance.name}
 												>
 													{truncateName(instance.name)}
@@ -383,12 +432,28 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 											</div>
 											<div style={{ display: 'flex', justifyContent: 'center', flex: 1 }}>
 												{isRunning && (
-													<div style={{
-														fontSize: '11px',
-														color: '#6b7280',
-														transition: 'transform 0.2s ease',
-														transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-													}}>↓</div>
+													<button
+														type="button"
+														aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
+														title={isExpanded ? 'Collapse details' : 'Expand details'}
+														onClick={(e) => {
+															e.stopPropagation();
+															toggleExpand(instance.name);
+														}}
+														style={{
+															background: 'transparent',
+															border: 'none',
+															padding: 0,
+															width: '18px',
+															height: '18px',
+															display: 'flex',
+															alignItems: 'center',
+															justifyContent: 'center',
+															cursor: 'pointer'
+														}}
+													>
+														<Chevron expanded={isExpanded} />
+													</button>
 												)}
 											</div>
 											<div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', zIndex: 10 }}>
@@ -459,7 +524,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 								)}
 							</div>
 
-							{isExpanded && isRunning && (
+							{isExpanded && canExpand && (
 								<div style={{
 									padding: '0',
 									background: 'rgba(0,0,0,0.05)'
@@ -467,7 +532,17 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									{loadingInfo ? (
 										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-descriptionForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Loading details...</div>
 									) : instanceInfo ? (
-										<InstanceDetails info={instanceInfo} onDelete={onDeleteInstance} />
+										<InstanceDetails
+											info={instanceInfo}
+											onDelete={onDeleteInstance}
+											onStart={onStartInstance}
+											onStop={onStopInstance}
+											onSuspend={onSuspendInstance}
+											onShell={onShellInstance}
+											onSetupSSH={onSetupSSHInstance}
+											onRecover={onRecoverInstance}
+											onPurge={onPurgeInstance}
+										/>
 									) : (
 										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-errorForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Failed to load instance details</div>
 									)}
@@ -498,7 +573,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									onContextMenu={(e) => handleContextMenu(e, instance.name, instance.state)}
 								>
 									<div
-										style={{ fontSize: '14px', fontWeight: 300, color: 'var(--vscode-descriptionForeground)', fontFamily: getDistributionFont(instance.release), opacity: 0.6 }}
+										style={{ ...nameStyle(instance.release), opacity: 0.6 }}
 										title={instance.name}
 									>
 										{truncateName(instance.name)}

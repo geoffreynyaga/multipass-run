@@ -61,6 +61,8 @@ Commit shape:
 
 ## Phase 1 — Sidebar List And Detail Polish
 
+Status: first pass done; grouped status sections remain open.
+
 Goal: make the everyday sidebar match the approved design direction without changing major data flow.
 
 References:
