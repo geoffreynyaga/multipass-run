@@ -4,6 +4,7 @@ import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
+import { buildImageOptions } from '../../utils/multipassImages';
 
 export interface CreateInstanceCallbacks {
 	onInstanceNameSelected?: (name: string) => void;
@@ -63,53 +64,26 @@ export async function createDefaultInstance(
 		imageKey: string;
 	}
 
-	const imageItems: ImageQuickPickItem[] = [];
-
-	// Add Ubuntu LTS images first (most common)
-	const ltsImages = Object.entries(imagesResult.images)
-		.filter(([_, image]) => image.release.includes('LTS'))
-		.sort((a, b) => b[0].localeCompare(a[0])); // Newest first
-
-	for (const [key, image] of ltsImages) {
-		const label = `${image.os} ${image.release}`;
-		const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
-		const detail = `Version: ${image.version}`;
-
-		imageItems.push({
-			label,
-			description,
-			detail,
-			picked: key === '24.04', // Default to latest LTS
-			alwaysShow: true,
-			imageKey: key
-		});
-	}
-
-	// Add other Ubuntu images
-	const otherImages = Object.entries(imagesResult.images)
-		.filter(([_, image]) => !image.release.includes('LTS'))
-		.sort((a, b) => b[0].localeCompare(a[0])); // Newest first
-
-	if (otherImages.length > 0) {
-		imageItems.push({
-			label: '',
-			kind: vscode.QuickPickItemKind.Separator,
-			imageKey: ''
-		});
-
-		for (const [key, image] of otherImages) {
-			const label = `${image.os} ${image.release}`;
-			const description = image.aliases.length > 0 ? `(${image.aliases.join(', ')})` : '';
-			const detail = `Version: ${image.version}${image.remote ? ` • Remote: ${image.remote}` : ''}`;
-
-			imageItems.push({
-				label,
-				description,
-				detail,
-				imageKey: key
-			});
+	const imageOptions = buildImageOptions(imagesResult.images, 'ubuntu');
+	const firstOtherImageIndex = imageOptions.findIndex((image) => !image.isLts);
+	const imageItems: ImageQuickPickItem[] = imageOptions.flatMap((image, index) => {
+		const item: ImageQuickPickItem = {
+			label: image.label,
+			description: image.description ?? '',
+			detail: image.detail,
+			picked: image.imageKey === '24.04',
+			alwaysShow: image.isLts,
+			imageKey: image.imageKey
+		};
+		if (index === firstOtherImageIndex) {
+			return [{
+				label: '',
+				kind: vscode.QuickPickItemKind.Separator,
+				imageKey: ''
+			}, item];
 		}
-	}
+		return [item];
+	});
 
 	// Show image selection
 	const selectedImage = await vscode.window.showQuickPick(imageItems, {

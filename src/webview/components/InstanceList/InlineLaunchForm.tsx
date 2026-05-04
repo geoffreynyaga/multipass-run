@@ -13,12 +13,16 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	debianIconUri,
 	debianDarkIconUri,
 	multipassCapabilities,
+	inlineImageOptions,
+	isLoadingInlineImages,
 	onBack,
 	onLaunchFromInlineForm,
+	onRequestInlineImages,
 	onOptimisticLaunch
 }) => {
 	const [name, setName] = React.useState('');
 	const [distro, setDistro] = React.useState<InlineLaunchConfig['distro']>('ubuntu');
+	const [selectedImageKey, setSelectedImageKey] = React.useState('');
 	const [cpus, setCpus] = React.useState('2');
 	const [memory, setMemory] = React.useState('2');
 	const [disk, setDisk] = React.useState('10');
@@ -32,7 +36,7 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	};
 	const launchPreview = [
 		'multipass launch',
-		distro === 'ubuntu' ? '' : distro,
+		selectedImageKey || (distro === 'ubuntu' ? '' : distro),
 		name.trim() ? `--name ${name.trim()}` : '',
 		isCustom ? `--cpus ${cpus}` : '',
 		isCustom ? `--memory ${memory}G` : '',
@@ -78,6 +82,30 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 		display: 'block',
 		borderRadius: '50%'
 	};
+	const filteredImageOptions = React.useMemo(
+		() => inlineImageOptions.filter((option) => option.distro === distro),
+		[inlineImageOptions, distro]
+	);
+	const selectedImage = filteredImageOptions.find((option) => option.imageKey === selectedImageKey) ?? filteredImageOptions[0];
+
+	React.useEffect(() => {
+		if (isCustom) {
+			onRequestInlineImages(distro);
+		}
+	}, [distro, isCustom, onRequestInlineImages]);
+
+	React.useEffect(() => {
+		if (!isCustom) {
+			return;
+		}
+		if (filteredImageOptions.length === 0) {
+			setSelectedImageKey('');
+			return;
+		}
+		if (!filteredImageOptions.some((option) => option.imageKey === selectedImageKey)) {
+			setSelectedImageKey(filteredImageOptions[0].imageKey);
+		}
+	}, [filteredImageOptions, isCustom, selectedImageKey]);
 
 	const submit = () => {
 		if (isSubmitting) {
@@ -89,15 +117,17 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 			mode,
 			name: instanceName,
 			distro,
+			image: isCustom ? selectedImage?.imageKey : undefined,
+			imageRelease: isCustom ? selectedImage?.release : undefined,
 			cpus: isCustom ? cpus : undefined,
 			memory: isCustom ? `${memory}G` : undefined,
 			disk: isCustom ? `${disk}G` : undefined
 		});
 		onOptimisticLaunch({
 			name: instanceName,
-			release: distro === 'ubuntu'
+			release: selectedImage?.release || (distro === 'ubuntu'
 				? 'Ubuntu LTS'
-				: `${distro.charAt(0).toUpperCase()}${distro.slice(1)}`
+				: `${distro.charAt(0).toUpperCase()}${distro.slice(1)}`)
 		});
 		onBack();
 	};
@@ -177,6 +207,32 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 
 				{isCustom && (
 					<>
+						<div>
+							<label style={labelStyle}>Image</label>
+							<select
+								value={selectedImageKey}
+								onChange={(event) => setSelectedImageKey(event.currentTarget.value)}
+								disabled={isLoadingInlineImages || filteredImageOptions.length === 0}
+								style={fieldStyle}
+							>
+								{isLoadingInlineImages && filteredImageOptions.length === 0 && (
+									<option value="">Loading images...</option>
+								)}
+								{!isLoadingInlineImages && filteredImageOptions.length === 0 && (
+									<option value="">No images found</option>
+								)}
+								{filteredImageOptions.map((option) => (
+									<option key={option.imageKey} value={option.imageKey}>
+										{option.label}
+									</option>
+								))}
+							</select>
+							{selectedImage?.detail && (
+								<div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.35 }}>
+									{selectedImage.detail}
+								</div>
+							)}
+						</div>
 						<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 							<div>
 								<label style={labelStyle}>CPU</label>

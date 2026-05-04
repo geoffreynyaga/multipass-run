@@ -9,8 +9,8 @@ import { createDefaultInstance } from './commands/launch/createDefaultInstance';
 import { createDetailedInstance } from './commands/launch/createDetailedInstance';
 import { getMultipassCapabilities } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
-import type { MultipassImage } from './commands/findImages';
 import type { MultipassCapabilities } from './utils/multipassVersion';
+import { buildImageOptions, pickImageForDistro, type MultipassDistro } from './utils/multipassImages';
 
 // Extension utilities
 import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
@@ -75,42 +75,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private pickImageForDistro(
-		images: Record<string, MultipassImage>,
-		distro: 'ubuntu' | 'fedora' | 'debian'
-	): { imageKey?: string; release: string } | undefined {
-		if (distro === 'ubuntu') {
-			return { release: 'Ubuntu LTS' };
-		}
-
-		const candidates = Object.entries(images).filter(([key, image]) => {
-			const os = image.os.toLowerCase();
-			return os.includes(distro) || key.toLowerCase().includes(distro);
-		});
-		if (candidates.length === 0) {
-			return undefined;
-		}
-
-		const sorted = candidates.sort((a, b) => {
-			const aImage = a[1];
-			const bImage = b[1];
-			return bImage.release.localeCompare(aImage.release, undefined, {
-				numeric: true,
-				sensitivity: 'base',
-			});
-		});
-
-		const [imageKey, image] = sorted[0];
-		return {
-			imageKey,
-			release: `${image.os} ${image.release}`,
-		};
-	}
-
 	private async launchInlineInstance(config: {
 		mode: 'quick' | 'custom';
 		name?: string;
-		distro: 'ubuntu' | 'fedora' | 'debian';
+		distro: MultipassDistro;
+		image?: string;
+		imageRelease?: string;
 		cpus?: string;
 		memory?: string;
 		disk?: string;
@@ -134,7 +104,13 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			vscode.window.showErrorMessage('Failed to fetch available Multipass images.');
 			return;
 		}
-		const image = this.pickImageForDistro(imagesResult.images, config.distro);
+		const selectedImage = config.image ? imagesResult.images[config.image] : undefined;
+		const image = selectedImage
+			? {
+				imageKey: config.image,
+				release: `${selectedImage.os} ${selectedImage.release}`,
+			}
+			: pickImageForDistro(imagesResult.images, config.distro);
 		if (!image) {
 			vscode.window.showErrorMessage(`No ${config.distro} image was found in multipass find.`);
 			return;
@@ -450,6 +426,23 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				await this.createDetailedInstance();
 			} else if (message.command === 'launchInlineInstance') {
 				await this.launchInlineInstance(message.config);
+			} else if (message.command === 'getInlineImageOptions') {
+				const requestedDistro = typeof message.distro === 'string' ? message.distro : 'ubuntu';
+				const distro: MultipassDistro = requestedDistro === 'fedora' || requestedDistro === 'debian'
+					? requestedDistro
+					: 'ubuntu';
+				const imagesResult = await MultipassService.findImages();
+				if (!imagesResult) {
+					this._view?.webview.postMessage({
+						command: 'inlineImageOptionsError',
+						error: 'Failed to fetch available Multipass images.',
+					});
+					return;
+				}
+				this._view?.webview.postMessage({
+					command: 'inlineImageOptions',
+					options: buildImageOptions(imagesResult.images, distro),
+				});
 			} else if (message.command === 'launchCloudInitInstance') {
 				vscode.window.showInformationMessage('Cloud-init launches are coming soon.');
 			} else if (message.command === 'launchProfileInstance') {

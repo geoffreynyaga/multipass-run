@@ -6,7 +6,7 @@ import { InlineLaunchForm } from './InstanceList/InlineLaunchForm';
 import { InstanceContextMenu } from './InstanceList/InstanceContextMenu';
 import { InstanceDetails } from './InstanceDetails';
 import { LaunchOptionsPanel } from './InstanceList/LaunchOptionsPanel';
-import type { InlineLaunchConfig } from '../App';
+import type { InlineImageOption, InlineLaunchConfig } from '../App';
 import type { MultipassCapabilities } from '../../utils/multipassVersion';
 import { MAX_VM_NAME_DISPLAY_CHARS } from '../../utils/constants';
 import React from 'react';
@@ -25,6 +25,9 @@ interface InstanceListProps {
 	onCreateCloudInitInstance: () => void;
 	onCreateProfileInstance: () => void;
 	onLaunchFromInlineForm: (config: InlineLaunchConfig) => void;
+	inlineImageOptions: InlineImageOption[];
+	isLoadingInlineImages: boolean;
+	onRequestInlineImages: (distro: InlineLaunchConfig['distro']) => void;
 	multipassCapabilities: MultipassCapabilities;
 	onStartInstance: (name: string) => void;
 	onStopInstance: (name: string) => void;
@@ -53,6 +56,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onCreateCloudInitInstance,
 	onCreateProfileInstance,
 	onLaunchFromInlineForm,
+	inlineImageOptions,
+	isLoadingInlineImages,
+	onRequestInlineImages,
 	multipassCapabilities,
 	onStartInstance,
 	onStopInstance,
@@ -218,9 +224,12 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				debianIconUri={debianIconUri}
 				debianDarkIconUri={debianDarkIconUri}
 				multipassCapabilities={multipassCapabilities}
+				inlineImageOptions={inlineImageOptions}
+				isLoadingInlineImages={isLoadingInlineImages}
 				onCreateCloudInitInstance={onCreateCloudInitInstance}
 				onCreateProfileInstance={onCreateProfileInstance}
 				onLaunchFromInlineForm={onLaunchFromInlineForm}
+				onRequestInlineImages={onRequestInlineImages}
 				onOptimisticLaunch={addOptimisticLaunch}
 			/>
 		);
@@ -237,8 +246,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				debianIconUri={debianIconUri}
 				debianDarkIconUri={debianDarkIconUri}
 				multipassCapabilities={multipassCapabilities}
+				inlineImageOptions={inlineImageOptions}
+				isLoadingInlineImages={isLoadingInlineImages}
 				onBack={() => setInlineLaunchMode(null)}
 				onLaunchFromInlineForm={onLaunchFromInlineForm}
+				onRequestInlineImages={onRequestInlineImages}
 				onOptimisticLaunch={addOptimisticLaunch}
 			/>
 		);

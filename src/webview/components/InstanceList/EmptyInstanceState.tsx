@@ -17,9 +17,12 @@ export const EmptyInstanceState: React.FC<EmptyInstanceStateProps> = ({
 	debianIconUri,
 	debianDarkIconUri,
 	multipassCapabilities,
+	inlineImageOptions,
+	isLoadingInlineImages,
 	onCreateCloudInitInstance,
 	onCreateProfileInstance,
 	onLaunchFromInlineForm,
+	onRequestInlineImages,
 	onOptimisticLaunch
 }) => {
 	const [showEmptyOptions, setShowEmptyOptions] = React.useState(false);
@@ -36,8 +39,11 @@ export const EmptyInstanceState: React.FC<EmptyInstanceStateProps> = ({
 				debianIconUri={debianIconUri}
 				debianDarkIconUri={debianDarkIconUri}
 				multipassCapabilities={multipassCapabilities}
+				inlineImageOptions={inlineImageOptions}
+				isLoadingInlineImages={isLoadingInlineImages}
 				onBack={() => setInlineLaunchMode(null)}
 				onLaunchFromInlineForm={onLaunchFromInlineForm}
+				onRequestInlineImages={onRequestInlineImages}
 				onOptimisticLaunch={onOptimisticLaunch}
 			/>
 		);

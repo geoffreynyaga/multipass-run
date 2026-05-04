@@ -2,6 +2,7 @@ import { InstanceLists, MultipassInstanceInfo } from '../multipassService';
 import React, { useEffect, useState } from 'react';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { MultipassCapabilities } from '../utils/multipassVersion';
+import type { MultipassDistro, MultipassImageOption } from '../utils/multipassImages';
 
 import  InstanceList from './components/InstanceList';
 
@@ -26,11 +27,15 @@ const vscode = acquireVsCodeApi();
 export interface InlineLaunchConfig {
 	mode: 'quick' | 'custom';
 	name?: string;
-	distro: 'ubuntu' | 'fedora' | 'debian';
+	distro: MultipassDistro;
+	image?: string;
+	imageRelease?: string;
 	cpus?: string;
 	memory?: string;
 	disk?: string;
 }
+
+export type InlineImageOption = MultipassImageOption;
 
 const VmIcon: React.FC<{ size?: number }> = ({ size = 28 }) => (
 	<svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
@@ -348,6 +353,8 @@ const App: React.FC = () => {
 		window.multipassCapabilities || { supportsAlternativeDistros: false }
 	);
 	const [installPlan, setInstallPlan] = useState<InstallPlan | null>(window.installPlan || null);
+	const [inlineImageOptions, setInlineImageOptions] = useState<InlineImageOption[]>([]);
+	const [isLoadingInlineImages, setIsLoadingInlineImages] = useState(false);
 
 	// Debug: Log initial state
 	console.log('App mounted. Initial state:', window.initialState);
@@ -375,6 +382,14 @@ const App: React.FC = () => {
 					break;
 				case 'installPlan':
 					setInstallPlan(message.plan);
+					break;
+				case 'inlineImageOptions':
+					setInlineImageOptions(message.options || []);
+					setIsLoadingInlineImages(false);
+					break;
+				case 'inlineImageOptionsError':
+					setInlineImageOptions([]);
+					setIsLoadingInlineImages(false);
 					break;
 			}
 		};
@@ -405,6 +420,11 @@ const App: React.FC = () => {
 	const handleLaunchFromInlineForm = (config: InlineLaunchConfig) => {
 		vscode.postMessage({ command: 'launchInlineInstance', config });
 	};
+
+	const handleRequestInlineImages = React.useCallback((distro: InlineLaunchConfig['distro']) => {
+		setIsLoadingInlineImages(true);
+		vscode.postMessage({ command: 'getInlineImageOptions', distro });
+	}, []);
 
 	const handleStartInstance = (name: string) => {
 		vscode.postMessage({ command: 'startInstance', instanceName: name });
@@ -560,6 +580,9 @@ const App: React.FC = () => {
 			onCreateCloudInitInstance={handleCreateCloudInitInstance}
 			onCreateProfileInstance={handleCreateProfileInstance}
 			onLaunchFromInlineForm={handleLaunchFromInlineForm}
+			inlineImageOptions={inlineImageOptions}
+			isLoadingInlineImages={isLoadingInlineImages}
+			onRequestInlineImages={handleRequestInlineImages}
 			multipassCapabilities={multipassCapabilities}
 			onStartInstance={handleStartInstance}
 			onStopInstance={handleStopInstance}
