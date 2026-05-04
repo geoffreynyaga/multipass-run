@@ -7,8 +7,6 @@ node_modules
 
 claude-design/
 
-pnpm-lock.yaml
-
 .fallow/
 
 .DS_Store
