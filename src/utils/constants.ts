@@ -1,6 +1,8 @@
 export const MULTIPASS_PATHS = [
-	'multipass',                    // Try PATH first (works for most installations)
-	'/snap/bin/multipass',          // Snap installation (Ubuntu/Linux)
-	'/usr/local/bin/multipass',     // Standard Linux installation
-	'/opt/homebrew/bin/multipass'   // Homebrew on Apple Silicon Macs
+	'multipass',                                                            // PATH lookup (works when shell PATH is inherited)
+	'/snap/bin/multipass',                                                  // Snap (Ubuntu/Linux)
+	'/usr/local/bin/multipass',                                             // Standard Linux + macOS pkg symlink
+	'/opt/homebrew/bin/multipass',                                          // Homebrew on Apple Silicon
+	'/Library/Application Support/com.canonical.multipass/bin/multipass',   // macOS pkg installer canonical location
+	'C:\\Program Files\\Multipass\\bin\\multipass.exe'                      // Windows installer default
 ];

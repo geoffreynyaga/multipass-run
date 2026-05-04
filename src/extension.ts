@@ -28,8 +28,34 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
-		public readonly pendingStore: PendingLaunchStore
+		public readonly pendingStore: PendingLaunchStore,
+		private readonly _globalState: vscode.Memento
 	) {}
+
+	private async maybeOfferKeyRemovalPrompt(): Promise<void> {
+		try {
+			if (MultipassService.countManagedSSHEntries() > 0) {
+				return;
+			}
+			if (this._globalState.get<boolean>('multipassRun.skipKeyRemovalPrompt', false)) {
+				return;
+			}
+			const choice = await vscode.window.showInformationMessage(
+				'No more multipass instances. Remove the multipass SSH key pair from ~/.ssh?',
+				'Yes',
+				'No',
+				"Don't ask again"
+			);
+			if (choice === 'Yes') {
+				MultipassService.removeManagedSSHKeyPair();
+				vscode.window.showInformationMessage('Multipass SSH key pair removed.');
+			} else if (choice === "Don't ask again") {
+				await this._globalState.update('multipassRun.skipKeyRemovalPrompt', true);
+			}
+		} catch (err) {
+			console.error('maybeOfferKeyRemovalPrompt failed:', err);
+		}
+	}
 
 	public async resolveWebviewView(webviewView: vscode.WebviewView): Promise<void> {
 		this._view = webviewView;
@@ -291,6 +317,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				// Remove SSH config if it exists
 						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
+						await this.maybeOfferKeyRemovalPrompt();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
 						await this.refresh();
@@ -349,6 +376,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				// Remove SSH config if it exists
 						await MultipassService.removeSSHConfigForInstance(message.instanceName);
 						await this.refresh();
+						await this.maybeOfferKeyRemovalPrompt();
 					} else {
 						vscode.window.showErrorMessage(`Failed to purge instance '${message.instanceName}': ${result.error}`);
 						await this.refresh();
@@ -424,7 +452,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const pendingStore = new PendingLaunchStore(context.globalState);
 
 	// Register the webview view provider
-	const provider = new MultipassViewProvider(context.extensionUri, pendingStore);
+	const provider = new MultipassViewProvider(context.extensionUri, pendingStore, context.globalState);
 	context.subscriptions.push(
 		vscode.window.registerWebviewViewProvider('multipass-run-view', provider)
 	);
@@ -497,6 +525,85 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('multipass-run.setupSSH', async () => {
 			await MultipassService.setupSSH();
+		})
+	);
+
+	// Register command to prune SSH config blocks for VMs that no longer exist
+	// in `multipass list` (e.g. created before this extension's bracket-marker
+	// format, or deleted via the multipass CLI directly).
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.pruneOrphanedSSHEntries', async () => {
+			try {
+				const lists = await MultipassService.getInstanceLists();
+				if (lists.error) {
+					vscode.window.showErrorMessage(
+						`Cannot prune: ${lists.error.message}`
+					);
+					return;
+				}
+				const known = new Set<string>([
+					...lists.active.map((i) => i.name),
+					...lists.deleted.map((i) => i.name),
+				]);
+				const removed = await MultipassService.pruneOrphanedSSHEntries(known);
+				if (removed.length === 0) {
+					vscode.window.showInformationMessage('No orphaned SSH config entries found.');
+				} else {
+					vscode.window.showInformationMessage(
+						`Removed ${removed.length} orphaned SSH entr${removed.length === 1 ? 'y' : 'ies'}: ${removed.join(', ')}`
+					);
+				}
+			} catch (err) {
+				const message = err instanceof Error ? err.message : String(err);
+				vscode.window.showErrorMessage(`Prune failed: ${message}`);
+			}
+		})
+	);
+
+	// One-time auto-scrub at activation: pick up entries left over by previous
+	// versions of this extension or by direct CLI deletes. Runs after a short
+	// delay so the multipass daemon has time to respond.
+	setTimeout(async () => {
+		try {
+			const lists = await MultipassService.getInstanceLists();
+			if (lists.error) {
+				return;
+			}
+			const known = new Set<string>([
+				...lists.active.map((i) => i.name),
+				...lists.deleted.map((i) => i.name),
+			]);
+			const removed = await MultipassService.pruneOrphanedSSHEntries(known);
+			if (removed.length > 0) {
+				console.log(
+					`[multipass-run] Auto-pruned ${removed.length} orphaned SSH entr${removed.length === 1 ? 'y' : 'ies'}: ${removed.join(', ')}`
+				);
+			}
+		} catch (err) {
+			console.warn('[multipass-run] Auto-prune of orphaned SSH entries failed:', err);
+		}
+	}, 3000);
+
+	// Register command to clear pending launches that got "stuck" (e.g., after
+	// uninstall/reinstall of multipass leaves orphaned synthetic rows).
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.clearPendingLaunches', async () => {
+			const pending = pendingStore.list();
+			if (pending.length === 0) {
+				vscode.window.showInformationMessage('No pending launches to clear.');
+				return;
+			}
+			const confirm = await vscode.window.showWarningMessage(
+				`Clear ${pending.length} pending launch entr${pending.length === 1 ? 'y' : 'ies'}? ` +
+					`This only removes the local sidebar row, not any actual VMs.`,
+				{ modal: true },
+				'Clear'
+			);
+			if (confirm === 'Clear') {
+				await pendingStore.clear();
+				await provider.refresh();
+				vscode.window.showInformationMessage('Pending launches cleared.');
+			}
 		})
 	);
 }

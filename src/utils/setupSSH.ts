@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { getInstances } from '../commands/listInstances';
-import { setupSSHForInstance } from './sshConfig';
+import { openRemoteSSHView, setupSSHForInstance } from './sshConfig';
 
 /**
  * Command to set up SSH for an existing instance
@@ -79,7 +79,7 @@ export async function setupSSH(instanceName?: string): Promise<void> {
 				'Open in Remote-SSH'
 			).then(selection => {
 				if (selection === 'Open in Remote-SSH') {
-					vscode.commands.executeCommand('opensshremotes.focus');
+					openRemoteSSHView();
 				}
 			});
 		} else {

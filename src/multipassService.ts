@@ -1,4 +1,4 @@
-import { connectToInstanceViaSSH as connectToInstanceViaSSHCommand, removeSSHConfigForInstance as removeSSHConfigForInstanceCommand, setupSSHForInstance as setupSSHForInstanceCommand } from './utils/sshConfig';
+import { connectToInstanceViaSSH as connectToInstanceViaSSHCommand, countManagedSSHEntries as countManagedSSHEntriesCommand, openRemoteSSHView as openRemoteSSHViewCommand, pruneOrphanedSSHEntries as pruneOrphanedSSHEntriesCommand, removeManagedSSHKeyPair as removeManagedSSHKeyPairCommand, removeSSHConfigForInstance as removeSSHConfigForInstanceCommand, setupSSHForInstance as setupSSHForInstanceCommand } from './utils/sshConfig';
 // Import functions from command modules
 import { getInstanceLists as getInstanceListsCommand, getInstances as getInstancesCommand } from './commands/listInstances';
 
@@ -39,7 +39,7 @@ export { purgeInstance } from './commands/purgeInstance';
 export { suspendInstance } from './commands/suspendInstance';
 export { shellInstance } from './commands/shell';
 export { findImages } from './commands/findImages';
-export { setupSSHForInstance, removeSSHConfigForInstance, connectToInstanceViaSSH } from './utils/sshConfig';
+export { setupSSHForInstance, removeSSHConfigForInstance, connectToInstanceViaSSH, countManagedSSHEntries, removeManagedSSHKeyPair, pruneOrphanedSSHEntries, openRemoteSSHView } from './utils/sshConfig';
 export { isImageAlreadyDownloaded } from './utils/isImageAlreadyDownloaded';
 export { instanceNameExists } from './commands/launch/instanceNameExists';
 export { setupSSH } from './utils/setupSSH';
@@ -63,6 +63,10 @@ export class MultipassService {
 	public static setupSSHForInstance = setupSSHForInstanceCommand;
 	public static removeSSHConfigForInstance = removeSSHConfigForInstanceCommand;
 	public static connectToInstanceViaSSH = connectToInstanceViaSSHCommand;
+	public static countManagedSSHEntries = countManagedSSHEntriesCommand;
+	public static removeManagedSSHKeyPair = removeManagedSSHKeyPairCommand;
+	public static pruneOrphanedSSHEntries = pruneOrphanedSSHEntriesCommand;
+	public static openRemoteSSHView = openRemoteSSHViewCommand;
 	public static isImageAlreadyDownloaded = isImageAlreadyDownloadedCommand;
 	public static instanceNameExists = instanceNameExistsCommand;
 	public static setupSSH = setupSSHCommand;

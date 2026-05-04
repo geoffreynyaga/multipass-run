@@ -29,6 +29,16 @@
         "command": "multipass-run.createInstanceMenu",
         "title": "Create Instance",
         "icon": "$(add)"
+      },
+      {
+        "command": "multipass-run.clearPendingLaunches",
+        "title": "Multipass: Clear Pending Launches",
+        "category": "Multipass"
+      },
+      {
+        "command": "multipass-run.pruneOrphanedSSHEntries",
+        "title": "Multipass: Prune Orphaned SSH Entries",
+        "category": "Multipass"
       }
     ],
     "viewsContainers": {

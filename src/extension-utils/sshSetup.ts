@@ -22,9 +22,14 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 			return;
 		}
 
-		// Wait for instance to be running and get its IP
+		// Wait for instance to be running and get its IP. Polling starts AFTER
+		// `multipass launch` returns, so it covers the state-propagation window
+		// (running flag + IP assignment), not the image download. 1s interval
+		// keeps the popup snappy when the VM finishes booting quickly; 90 max
+		// attempts (90s ceiling) gives the daemon room on slow hosts.
 		let attempts = 0;
-		const maxAttempts = 30;
+		const maxAttempts = 90;
+		const pollIntervalMs = 1000;
 		let instanceIP = '';
 
 		vscode.window.showInformationMessage(`Waiting for instance '${instanceName}' to be ready...`);
@@ -38,7 +43,7 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 				break;
 			}
 
-			await new Promise(resolve => setTimeout(resolve, 2000));
+			await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
 			attempts++;
 		}
 
@@ -82,8 +87,7 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 			if (selection === 'Connect Now') {
 				await MultipassService.connectToInstanceViaSSH(instanceName);
 			} else if (selection === 'Show in Remote-SSH') {
-				// Open Remote-SSH extension view
-				await vscode.commands.executeCommand('opensshremotes.focus');
+				await MultipassService.openRemoteSSHView();
 			}
 		} else {
 			vscode.window.showErrorMessage(

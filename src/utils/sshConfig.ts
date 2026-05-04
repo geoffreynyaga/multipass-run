@@ -3,235 +3,326 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { exec, execFile } from 'child_process';
+import {
+	addBlock,
+	buildHostBody,
+	countBlocks,
+	extractBlocks,
+	migrateLegacyBlocks,
+	normalizeManagedBlockBodies,
+	removeBlock,
+} from './sshConfigParser';
+import {
+	KEY_NAME_ED25519,
+	KEY_NAME_RSA_LEGACY,
+	type KeyPaths,
+	keygenArgs,
+	resolveKeyPaths,
+} from './sshKeyPath';
+
 import { MULTIPASS_PATHS } from './constants';
-import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface SSHSetupResult {
 	success: boolean;
 	error?: string;
 }
 
+function sshDir(): string {
+	return path.join(os.homedir(), '.ssh');
+}
+
+function sshConfigPath(): string {
+	return path.join(sshDir(), 'config');
+}
+
 /**
- * Sets up SSH access for a Multipass instance and adds it to SSH config
+ * Resolves the multipass binary by running `<candidate> version` through a
+ * shell (which performs PATH lookup) and taking the first one that succeeds.
+ * Mirrors the loop pattern used elsewhere in the codebase so we behave the
+ * same way as `multipass list` and friends.
  */
-export async function setupSSHForInstance(instanceName: string, instanceIP: string): Promise<SSHSetupResult> {
+async function findMultipassPath(): Promise<string> {
+	let lastError: unknown = null;
+	for (const mp of MULTIPASS_PATHS) {
+		try {
+			await execAsync(`${mp} version`);
+			return mp;
+		} catch (err) {
+			lastError = err;
+			continue;
+		}
+	}
+	const message = lastError instanceof Error ? lastError.message : 'unknown error';
+	throw new Error(
+		`Multipass command not found (last error: ${message}). ` +
+			`Try restarting VS Code from a terminal so the shell PATH is inherited.`
+	);
+}
+
+async function ensureSSHKeyPair(): Promise<KeyPaths> {
+	const dir = sshDir();
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { mode: 0o700 });
+	}
+	const paths = resolveKeyPaths(dir, fs.existsSync);
+	if (!fs.existsSync(paths.privateKey)) {
+		await execFileAsync('ssh-keygen', keygenArgs(paths.type, paths.privateKey));
+		fs.chmodSync(paths.privateKey, 0o600);
+		fs.chmodSync(paths.publicKey, 0o644);
+	}
+	return paths;
+}
+
+async function ensureGuestSSHDir(multipassPath: string, instanceName: string): Promise<void> {
+	await execFileAsync(multipassPath, [
+		'exec',
+		instanceName,
+		'--',
+		'sh',
+		'-c',
+		'mkdir -p ~/.ssh && chmod 700 ~/.ssh',
+	]);
+}
+
+async function readGuestAuthorizedKeys(multipassPath: string, instanceName: string): Promise<string> {
 	try {
-		const sshDir = path.join(os.homedir(), '.ssh');
-		const privateKeyPath = path.join(sshDir, 'multipass_id_rsa');
-		const publicKeyPath = path.join(sshDir, 'multipass_id_rsa.pub');
-		const sshConfigPath = path.join(sshDir, 'config');
+		const { stdout } = await execFileAsync(multipassPath, [
+			'exec',
+			instanceName,
+			'--',
+			'cat',
+			'/home/ubuntu/.ssh/authorized_keys',
+		]);
+		return stdout;
+	} catch {
+		return '';
+	}
+}
 
-		// Ensure .ssh directory exists
-		if (!fs.existsSync(sshDir)) {
-			fs.mkdirSync(sshDir, { mode: 0o700 });
-		}
-
-		// Generate SSH key pair if it doesn't exist
-		if (!fs.existsSync(privateKeyPath)) {
-			try {
-				await execAsync(`ssh-keygen -t rsa -b 4096 -f "${privateKeyPath}" -N "" -C "multipass-vscode"`);
-				// Set proper permissions
-				fs.chmodSync(privateKeyPath, 0o600);
-				fs.chmodSync(publicKeyPath, 0o644);
-			} catch (error: any) {
-				return {
-					success: false,
-					error: `Failed to generate SSH key: ${error.message}`
-				};
-			}
-		}
-
-		// Read the public key
-		const publicKey = fs.readFileSync(publicKeyPath, 'utf8').trim();
-
-		// Copy public key to instance's authorized_keys
-		let multipassPath = '';
-		for (const mp of MULTIPASS_PATHS) {
-			try {
-				await execAsync(`${mp} version`);
-				multipassPath = mp;
-				break;
-			} catch {
-				continue;
-			}
-		}
-
-		if (!multipassPath) {
-			return {
-				success: false,
-				error: 'Multipass command not found'
-			};
-		}
-
-		// Ensure .ssh directory exists in instance
+async function appendKeyToGuest(
+	multipassPath: string,
+	instanceName: string,
+	publicKey: string
+): Promise<void> {
+	const tmpFile = path.join(os.tmpdir(), `multipass_key_${Date.now()}_${process.pid}.pub`);
+	fs.writeFileSync(tmpFile, publicKey + '\n', { mode: 0o644 });
+	try {
+		await execFileAsync(multipassPath, ['transfer', tmpFile, `${instanceName}:/tmp/mp_authkey.pub`]);
+		await execFileAsync(multipassPath, [
+			'exec',
+			instanceName,
+			'--',
+			'sh',
+			'-c',
+			'touch ~/.ssh/authorized_keys && cat /tmp/mp_authkey.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && rm -f /tmp/mp_authkey.pub',
+		]);
+	} finally {
 		try {
-			await execAsync(`${multipassPath} exec ${instanceName} -- bash -c "mkdir -p ~/.ssh && chmod 700 ~/.ssh"`);
-		} catch (error: any) {
-			return {
-				success: false,
-				error: `Failed to create .ssh directory in instance: ${error.message}`
-			};
+			fs.unlinkSync(tmpFile);
+		} catch {
+			// ignore
 		}
-
-		// Add public key to authorized_keys
-		try {
-			// First, check if the key already exists to avoid duplicates
-			const checkKeyCmd = `${multipassPath} exec ${instanceName} -- bash -c "grep -F '${publicKey}' ~/.ssh/authorized_keys 2>/dev/null || echo 'not_found'"`;
-			const { stdout: checkResult } = await execAsync(checkKeyCmd);
-
-			if (checkResult.trim() === 'not_found') {
-				// Key doesn't exist, add it
-				// Use a safer method: write key to a temp file, then transfer it
-				const tempKeyFile = path.join(os.tmpdir(), `multipass_key_${Date.now()}.pub`);
-				fs.writeFileSync(tempKeyFile, publicKey + '\n', 'utf8');
-
-				// Transfer the key file to the instance
-				await execAsync(`${multipassPath} transfer "${tempKeyFile}" ${instanceName}:/tmp/new_key.pub`);
-
-				// Append it to authorized_keys and set proper permissions
-				await execAsync(`${multipassPath} exec ${instanceName} -- bash -c "cat /tmp/new_key.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && rm /tmp/new_key.pub"`);
-
-				// Clean up temp file
-				fs.unlinkSync(tempKeyFile);
-
-				console.log(`SSH key added to instance '${instanceName}'`);
-			} else {
-				console.log(`SSH key already exists in instance '${instanceName}'`);
-			}
-		} catch (error: any) {
-			console.error(`Failed to add SSH key to instance: ${error.message}`);
-			return {
-				success: false,
-				error: `Failed to add SSH key to instance: ${error.message}`
-			};
-		}
-
-		// Add/update SSH config entry
-		const sshHostName = `multipass-${instanceName}`;
-		const sshConfigEntry = `
-# Multipass instance: ${instanceName} (managed by multipass-run extension)
-Host ${sshHostName}
-  HostName ${instanceIP}
-  User ubuntu
-  IdentityFile ${privateKeyPath}
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-  LogLevel ERROR
-`;
-
-		// Read existing SSH config
-		let sshConfig = '';
-		if (fs.existsSync(sshConfigPath)) {
-			sshConfig = fs.readFileSync(sshConfigPath, 'utf8');
-		}
-
-		// Remove any existing entry for this instance
-		const entryStartMarker = `# Multipass instance: ${instanceName}`;
-		const lines = sshConfig.split('\n');
-		const filteredLines: string[] = [];
-		let skipUntilNextHost = false;
-
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			if (line.includes(entryStartMarker)) {
-				skipUntilNextHost = true;
-				continue;
-			}
-			if (skipUntilNextHost && line.trim().startsWith('Host ') && !line.includes(sshHostName)) {
-				skipUntilNextHost = false;
-			}
-			if (!skipUntilNextHost) {
-				filteredLines.push(line);
-			}
-		}
-
-		// Add new entry at the beginning
-		const newConfig = sshConfigEntry + '\n' + filteredLines.join('\n').trim() + '\n';
-
-		console.log(`Writing SSH config to: ${sshConfigPath}`);
-		console.log(`SSH config entry:\n${sshConfigEntry}`);
-
-		fs.writeFileSync(sshConfigPath, newConfig, { mode: 0o600 });
-
-		// Verify it was written
-		const writtenConfig = fs.readFileSync(sshConfigPath, 'utf8');
-		if (writtenConfig.includes(entryStartMarker)) {
-			console.log(`✓ SSH config entry successfully written for '${instanceName}'`);
-		} else {
-			console.error(`✗ SSH config entry was NOT written to file!`);
-		}
-
-		console.log(`SSH config entry added for '${instanceName}' as host '${sshHostName}' and '${instanceIP}'`);
-		console.log(`SSH config path: ${sshConfigPath}`);
-		console.log(`IP Address: ${instanceIP}`);
-
-		// Test the SSH connection to make sure it works
-		try {
-			console.log('Testing SSH connection...');
-			const testCmd = `ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -i "${privateKeyPath}" ubuntu@${instanceIP} "echo 'SSH connection successful'"`;
-			const { stdout: testResult } = await execAsync(testCmd);
-
-			if (testResult.includes('SSH connection successful')) {
-				console.log('SSH connection test passed!');
-			} else {
-				console.warn('SSH connection test returned unexpected output:', testResult);
-			}
-		} catch (error: any) {
-			console.error('SSH connection test failed:', error.message);
-			// Don't fail the whole setup, just warn
-			console.warn('SSH config was created but connection test failed. The connection might work after a short delay.');
-		}
-
-		return { success: true };
-	} catch (error: any) {
-		console.error(`SSH setup error: ${error.message}`);
-		return {
-			success: false,
-			error: error.message || 'Unknown error during SSH setup'
-		};
 	}
 }
 
 /**
- * Removes SSH config entry for a Multipass instance
+ * Sets up SSH access for a Multipass instance and adds it to SSH config.
+ *
+ * Hardening notes:
+ *  - Uses ed25519 by default; keeps existing RSA pair if user already has one.
+ *  - Uses `multipass transfer` + `sh -c` (no shell interpolation of the public
+ *    key) to install the key in the guest authorized_keys.
+ *  - Writes a bracketed config block so removal is robust against manual edits.
+ *  - Uses `StrictHostKeyChecking accept-new` and the standard known_hosts file
+ *    so subsequent connections detect host-key tampering.
+ */
+export async function setupSSHForInstance(
+	instanceName: string,
+	instanceIP: string
+): Promise<SSHSetupResult> {
+	try {
+		const keys = await ensureSSHKeyPair();
+		const publicKey = fs.readFileSync(keys.publicKey, 'utf8').trim();
+
+		const multipassPath = await findMultipassPath();
+		await ensureGuestSSHDir(multipassPath, instanceName);
+
+		const existing = await readGuestAuthorizedKeys(multipassPath, instanceName);
+		if (!existing.includes(publicKey)) {
+			await appendKeyToGuest(multipassPath, instanceName, publicKey);
+			console.log(`SSH key added to instance '${instanceName}' (${keys.type})`);
+		} else {
+			console.log(`SSH key already present in instance '${instanceName}'`);
+		}
+
+		const sshHostName = `multipass-${instanceName}`;
+		const body = buildHostBody({
+			hostAlias: sshHostName,
+			hostName: instanceIP,
+			identityFile: keys.privateKey,
+		});
+
+		const cfgPath = sshConfigPath();
+		let cfg = fs.existsSync(cfgPath) ? fs.readFileSync(cfgPath, 'utf8') : '';
+		cfg = normalizeManagedBlockBodies(migrateLegacyBlocks(cfg));
+		cfg = addBlock(cfg, instanceName, body);
+		fs.writeFileSync(cfgPath, cfg, { mode: 0o600 });
+
+		console.log(`SSH config entry written for '${instanceName}' as '${sshHostName}' -> ${instanceIP}`);
+
+		// Best-effort connection probe. Don't fail setup on this — accept-new
+		// will record the host key on the user's first real connection anyway.
+		try {
+			await execAsync(
+				`ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -i "${keys.privateKey}" ubuntu@${instanceIP} "echo ok"`
+			);
+		} catch (err: unknown) {
+			console.warn('SSH connection probe failed (non-fatal):', err);
+		}
+
+		return { success: true };
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : 'Unknown error during SSH setup';
+		console.error(`SSH setup error: ${message}`);
+		return { success: false, error: message };
+	}
+}
+
+/**
+ * Removes the bracketed SSH config block for the instance and best-effort
+ * scrubs the known_hosts entry. Idempotent: safe to call when the entry is
+ * already gone.
  */
 export async function removeSSHConfigForInstance(instanceName: string): Promise<void> {
 	try {
-		const sshConfigPath = path.join(os.homedir(), '.ssh', 'config');
-
-		if (!fs.existsSync(sshConfigPath)) {
-			return;
+		const cfgPath = sshConfigPath();
+		if (fs.existsSync(cfgPath)) {
+			let cfg = fs.readFileSync(cfgPath, 'utf8');
+			cfg = normalizeManagedBlockBodies(migrateLegacyBlocks(cfg));
+			cfg = removeBlock(cfg, instanceName);
+			fs.writeFileSync(cfgPath, cfg, { mode: 0o600 });
 		}
-
-		const sshConfig = fs.readFileSync(sshConfigPath, 'utf8');
-		const entryStartMarker = `# Multipass instance: ${instanceName}`;
-		const sshHostName = `multipass-${instanceName}`;
-
-		const lines = sshConfig.split('\n');
-		const filteredLines: string[] = [];
-		let skipUntilNextHost = false;
-
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			if (line.includes(entryStartMarker)) {
-				skipUntilNextHost = true;
-				continue;
-			}
-			if (skipUntilNextHost && line.trim().startsWith('Host ') && !line.includes(sshHostName)) {
-				skipUntilNextHost = false;
-			}
-			if (!skipUntilNextHost) {
-				filteredLines.push(line);
-			}
-		}
-
-		fs.writeFileSync(sshConfigPath, filteredLines.join('\n').trim() + '\n', { mode: 0o600 });
 	} catch (error) {
 		console.error('Error removing SSH config entry:', error);
 	}
+
+	const sshHostName = `multipass-${instanceName}`;
+	try {
+		await execFileAsync('ssh-keygen', ['-R', sshHostName]);
+	} catch (error) {
+		// Host may not be in known_hosts; ignore.
+		console.log(`ssh-keygen -R ${sshHostName} returned non-zero (ok if absent)`);
+	}
+}
+
+/**
+ * Returns the number of bracket-managed multipass-run blocks currently in
+ * `~/.ssh/config`. Used to drive the "no more instances — remove key?" prompt
+ * after the last purge.
+ */
+export function countManagedSSHEntries(): number {
+	const cfgPath = sshConfigPath();
+	if (!fs.existsSync(cfgPath)) {
+		return 0;
+	}
+	const cfg = fs.readFileSync(cfgPath, 'utf8');
+	return countBlocks(cfg);
+}
+
+/**
+ * Removes managed SSH config blocks whose instance names are NOT present in
+ * the supplied set. Used to scrub stale entries left behind by VMs deleted
+ * outside the extension (e.g. via `multipass delete --purge`).
+ *
+ * Returns the names of blocks that were removed.
+ */
+export async function pruneOrphanedSSHEntries(
+	knownInstanceNames: ReadonlySet<string>
+): Promise<string[]> {
+	const removed: string[] = [];
+	const cfgPath = sshConfigPath();
+	if (!fs.existsSync(cfgPath)) {
+		return removed;
+	}
+
+	let cfg = fs.readFileSync(cfgPath, 'utf8');
+	cfg = normalizeManagedBlockBodies(migrateLegacyBlocks(cfg));
+
+	const orphans = extractBlocks(cfg)
+		.map((b) => b.instanceName)
+		.filter((name) => !knownInstanceNames.has(name));
+
+	for (const name of orphans) {
+		cfg = removeBlock(cfg, name);
+		removed.push(name);
+	}
+
+	fs.writeFileSync(cfgPath, cfg, { mode: 0o600 });
+
+	for (const name of removed) {
+		try {
+			await execFileAsync('ssh-keygen', ['-R', `multipass-${name}`]);
+		} catch {
+			// Host may not be in known_hosts; ignore.
+		}
+	}
+
+	return removed;
+}
+
+/**
+ * Deletes both the ed25519 and the legacy RSA key pair if either exists.
+ * Used by the last-instance purge prompt.
+ */
+export function removeManagedSSHKeyPair(): void {
+	const dir = sshDir();
+	for (const baseName of [KEY_NAME_ED25519, KEY_NAME_RSA_LEGACY]) {
+		const priv = path.join(dir, baseName);
+		const pub = `${priv}.pub`;
+		if (fs.existsSync(priv)) {
+			try {
+				fs.unlinkSync(priv);
+			} catch (err) {
+				console.warn(`Failed to delete ${priv}:`, err);
+			}
+		}
+		if (fs.existsSync(pub)) {
+			try {
+				fs.unlinkSync(pub);
+			} catch (err) {
+				console.warn(`Failed to delete ${pub}:`, err);
+			}
+		}
+	}
+}
+
+/**
+ * Opens (or focuses) VS Code's Remote Explorer view. Tries modern command
+ * ids first, falls back to the legacy `opensshremotes.focus` for older
+ * Remote-SSH builds, then surfaces a nudge if nothing is registered.
+ */
+export async function openRemoteSSHView(): Promise<void> {
+	const candidates = [
+		'workbench.view.remote',
+		'remote-explorer.focus',
+		'opensshremotes.focus',
+	];
+	for (const cmd of candidates) {
+		try {
+			await vscode.commands.executeCommand(cmd);
+			return;
+		} catch {
+			continue;
+		}
+	}
+	vscode.window.showInformationMessage(
+		'Open the Remote Explorer panel manually (View → Open View… → Remote Explorer) and pick the SSH host.'
+	);
 }
 
 /**
@@ -248,7 +339,7 @@ export async function connectToInstanceViaSSH(instanceName: string): Promise<voi
 			await vscode.commands.executeCommand('remote-ssh.configureHostsFile');
 			console.log('Triggered SSH config reload');
 			// Give it a moment to process
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 500));
 		} catch (reloadError) {
 			console.warn('Could not reload SSH config:', reloadError);
 			// Continue anyway
@@ -258,8 +349,9 @@ export async function connectToInstanceViaSSH(instanceName: string): Promise<voi
 		// This opens a new window connected to the host
 		await vscode.commands.executeCommand('remote-ssh.connectToHost', sshHostName);
 		console.log('Successfully triggered remote-ssh.connectToHost command');
-	} catch (error: any) {
-		console.error(`remote-ssh.connectToHost failed: ${error.message}`);
+	} catch (error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`remote-ssh.connectToHost failed: ${message}`);
 
 		// Fallback: try opening with SSH URI in a new window
 		try {
@@ -270,19 +362,22 @@ export async function connectToInstanceViaSSH(instanceName: string): Promise<voi
 				{ forceNewWindow: true }
 			);
 			console.log('Successfully opened SSH connection with URI');
-		} catch (uriError: any) {
-			console.error(`SSH URI connection failed: ${uriError.message}`);
+		} catch (uriError: unknown) {
+			const uriMessage = uriError instanceof Error ? uriError.message : String(uriError);
+			console.error(`SSH URI connection failed: ${uriMessage}`);
 
 			// Final fallback: try using the Remote Explorer command
 			try {
 				console.log('Trying final fallback: remote.newWindow');
 				await vscode.commands.executeCommand('remote.newWindow', {
-					authority: `ssh-remote+${sshHostName}`
+					authority: `ssh-remote+${sshHostName}`,
 				});
-			} catch (fallbackError: any) {
-				console.error(`All connection attempts failed: ${fallbackError.message}`);
+			} catch (fallbackError: unknown) {
+				const fallbackMessage =
+					fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+				console.error(`All connection attempts failed: ${fallbackMessage}`);
 				vscode.window.showErrorMessage(
-					`Failed to connect via Remote-SSH: ${error.message}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
+					`Failed to connect via Remote-SSH: ${message}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
 				);
 			}
 		}
