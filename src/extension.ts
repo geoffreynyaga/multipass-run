@@ -22,6 +22,7 @@ import {
 } from './extension-utils/pendingLaunches';
 import { setupSSHConnection } from './extension-utils/sshSetup';
 import { TerminalManager } from './extension-utils/terminalManager';
+import { type InstallPlan, MULTIPASS_DOWNLOAD_URL, detectInstallPlan } from './utils/installPackageManager';
 
 // WebView provider for the sidebar view
 class MultipassViewProvider implements vscode.WebviewViewProvider {
@@ -30,6 +31,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	public terminalManager = new TerminalManager();
 	private readonly _statusBarItem: vscode.StatusBarItem;
 	private _multipassCapabilities: MultipassCapabilities = { supportsAlternativeDistros: false };
+	private _installPlan: InstallPlan | null = null;
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
@@ -234,16 +236,33 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				// Simple refresh of the instance list
 				await this.refresh();
 			} else if (message.command === 'downloadMultipass') {
-				// Open Multipass download page
-				const choice = await vscode.window.showInformationMessage(
-					'Multipass is not installed. Would you like to download it?',
-					'Open Download Page',
-					'Cancel'
-				);
-
-				if (choice === 'Open Download Page') {
-					vscode.env.openExternal(vscode.Uri.parse('https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/'));
+				// Open Multipass download page directly (the not-installed screen
+				// already explains what's happening — no second confirmation needed).
+				vscode.env.openExternal(vscode.Uri.parse(MULTIPASS_DOWNLOAD_URL));
+			} else if (message.command === 'installMultipassViaTerminal') {
+				if (!this._installPlan?.command) {
+					vscode.window.showErrorMessage('No package manager detected for terminal install. Use Open Download Page instead.');
+					return;
 				}
+				const terminal = vscode.window.createTerminal({ name: 'Install Multipass' });
+				terminal.show();
+				// Pre-type without trailing newline so the user can review before pressing Enter.
+				terminal.sendText(this._installPlan.command, false);
+			} else if (message.command === 'copyInstallCommand') {
+				if (!this._installPlan?.command) {
+					vscode.window.showErrorMessage('No package manager detected. Nothing to copy.');
+					return;
+				}
+				await vscode.env.clipboard.writeText(this._installPlan.command);
+				vscode.window.showInformationMessage('Install command copied to clipboard.');
+			} else if (message.command === 'openInstallManagerHelp') {
+				if (!this._installPlan?.managerHelpUrl) {
+					vscode.window.showErrorMessage('No package manager help page is available for this system.');
+					return;
+				}
+				vscode.env.openExternal(vscode.Uri.parse(this._installPlan.managerHelpUrl));
+			} else if (message.command === 'openMultipassDocumentation') {
+				vscode.env.openExternal(vscode.Uri.parse(MULTIPASS_DOWNLOAD_URL));
 			} else if (message.command === 'cancelPendingLaunch') {
 				await this.pendingStore.remove(message.instanceName);
 				await this.refresh();
@@ -588,6 +607,19 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			? { supportsAlternativeDistros: false }
 			: await getMultipassCapabilities();
 
+		// Build (or clear) the install plan so the not-installed screen can show
+		// a terminal-first CTA when a package manager is available on the host.
+		if (rawLists.error?.type === 'not-installed') {
+			try {
+				this._installPlan = await detectInstallPlan();
+			} catch (err) {
+				console.warn('detectInstallPlan failed:', err);
+				this._installPlan = null;
+			}
+		} else {
+			this._installPlan = null;
+		}
+
 		// Reconcile pending launches against the real list. Drop ones that have
 		// landed; flag ones that have been hanging past STUCK_THRESHOLD_MS.
 		if (!rawLists.error) {
@@ -605,7 +637,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				merged,
 				this._view.webview,
 				this._extensionUri,
-				this._multipassCapabilities
+				this._multipassCapabilities,
+				this._installPlan
 			);
 			this._htmlInitialized = true;
 		} else {
@@ -613,6 +646,10 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			this._view.webview.postMessage({
 				command: 'updateInstances',
 				instanceLists: merged
+			});
+			this._view.webview.postMessage({
+				command: 'installPlan',
+				plan: this._installPlan
 			});
 			this._view.webview.postMessage({
 				command: 'multipassCapabilities',

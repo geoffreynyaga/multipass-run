@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { InstanceLists } from './multipassService';
+import type { InstallPlan } from './utils/installPackageManager';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 
 export class WebviewContent {
@@ -8,7 +9,8 @@ export class WebviewContent {
 		instanceLists: InstanceLists,
 		webview: vscode.Webview,
 		extensionUri: vscode.Uri,
-		multipassCapabilities: MultipassCapabilities
+		multipassCapabilities: MultipassCapabilities,
+		installPlan: InstallPlan | null
 	): string {
 		// Get the URI for the React webview bundle
 		const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'dist', 'webview.js'));
@@ -53,6 +55,7 @@ export class WebviewContent {
 				// Initialize state for the React app
 				window.initialState = ${JSON.stringify(instanceLists)};
 				window.multipassCapabilities = ${JSON.stringify(multipassCapabilities)};
+				window.installPlan = ${JSON.stringify(installPlan)};
 				window.ubuntuIconUri = '${ubuntuIconUri}';
 				window.ubuntuDarkIconUri = '${ubuntuDarkIconUri}';
 				window.fedoraIconUri = '${fedoraIconUri}';

@@ -2,8 +2,10 @@ import { InstanceLists, MultipassInstanceInfo } from '../../multipassService';
 import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
 import { EmptyInstanceState } from './InstanceList/EmptyInstanceState';
+import { InlineLaunchForm } from './InstanceList/InlineLaunchForm';
 import { InstanceContextMenu } from './InstanceList/InstanceContextMenu';
 import { InstanceDetails } from './InstanceDetails';
+import { LaunchOptionsPanel } from './InstanceList/LaunchOptionsPanel';
 import type { InlineLaunchConfig } from '../App';
 import type { MultipassCapabilities } from '../../utils/multipassVersion';
 import { MAX_VM_NAME_DISPLAY_CHARS } from '../../utils/constants';
@@ -70,6 +72,8 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
 	const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; instanceName: string; state: string } | null>(null);
 	const [copiedInstance, setCopiedInstance] = React.useState<string | null>(null);
+	const [inlineLaunchMode, setInlineLaunchMode] = React.useState<'quick' | 'custom' | null>(null);
+	const [showLaunchOptions, setShowLaunchOptions] = React.useState(false);
 	const activeWithOptimistic = React.useMemo(() => {
 		const realNames = new Set(active.map((instance) => instance.name));
 		const synthetic = optimisticLaunches
@@ -190,6 +194,13 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		return () => window.removeEventListener('click', handleClick);
 	}, []);
 
+	const addOptimisticLaunch = (launch: { name: string; release: string }) => {
+		setOptimisticLaunches((launches) => [
+			launch,
+			...launches.filter((existing) => existing.name !== launch.name)
+		]);
+	};
+
 	if (activeWithOptimistic.length === 0 && deleted.length === 0) {
 		return (
 			<EmptyInstanceState
@@ -203,12 +214,42 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 				onCreateCloudInitInstance={onCreateCloudInitInstance}
 				onCreateProfileInstance={onCreateProfileInstance}
 				onLaunchFromInlineForm={onLaunchFromInlineForm}
-				onOptimisticLaunch={(launch) => {
-					setOptimisticLaunches((launches) => [
-						launch,
-						...launches.filter((existing) => existing.name !== launch.name)
-					]);
-				}}
+				onOptimisticLaunch={addOptimisticLaunch}
+			/>
+		);
+	}
+
+	if (inlineLaunchMode) {
+		return (
+			<InlineLaunchForm
+				mode={inlineLaunchMode}
+				ubuntuIconUri={ubuntuIconUri}
+				ubuntuDarkIconUri={ubuntuDarkIconUri}
+				fedoraIconUri={fedoraIconUri}
+				fedoraDarkIconUri={fedoraDarkIconUri}
+				debianIconUri={debianIconUri}
+				debianDarkIconUri={debianDarkIconUri}
+				multipassCapabilities={multipassCapabilities}
+				onBack={() => setInlineLaunchMode(null)}
+				onLaunchFromInlineForm={onLaunchFromInlineForm}
+				onOptimisticLaunch={addOptimisticLaunch}
+			/>
+		);
+	}
+
+	if (showLaunchOptions) {
+		const openInlineForm = (mode: 'quick' | 'custom') => {
+			setShowLaunchOptions(false);
+			setInlineLaunchMode(mode);
+		};
+
+		return (
+			<LaunchOptionsPanel
+				onQuick={() => openInlineForm('quick')}
+				onCustom={() => openInlineForm('custom')}
+				onCreateCloudInitInstance={onCreateCloudInitInstance}
+				onCreateProfileInstance={onCreateProfileInstance}
+				onBack={() => setShowLaunchOptions(false)}
 			/>
 		);
 	}
@@ -294,14 +335,43 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 			{/* Active header */}
 			{activeWithOptimistic.length > 0 && (
 				<div style={{
-					fontSize: '9px',
-					textTransform: 'uppercase',
-					letterSpacing: '1.2px',
-					color: 'var(--vscode-descriptionForeground)',
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'space-between',
 					marginBottom: '18px',
-					fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-					opacity: 0.7
-				}}>Active</div>
+				}}>
+					<div style={{
+						fontSize: '9px',
+						textTransform: 'uppercase',
+						letterSpacing: '1.2px',
+						color: 'var(--vscode-descriptionForeground)',
+						fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+						opacity: 0.7
+					}}>Active</div>
+					<button
+						type="button"
+						onClick={() => setShowLaunchOptions(true)}
+						style={{
+							background: 'transparent',
+							border: 'none',
+							color: '#E95420',
+							cursor: 'pointer',
+							fontSize: '11px',
+							fontWeight: 600,
+							fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif',
+							padding: '2px 0',
+							lineHeight: 1.2
+						}}
+						onMouseEnter={(e) => {
+							e.currentTarget.style.color = '#ff7336';
+						}}
+						onMouseLeave={(e) => {
+							e.currentTarget.style.color = '#E95420';
+						}}
+					>
+						New instance
+					</button>
+				</div>
 			)}
 			<ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
 				{orderedActive.map(instance => {
