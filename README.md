@@ -120,12 +120,12 @@ The extension follows VS Code's design guidelines and provides:
 
 ## Prerequisites
 
-### System Requirements
+### System requirements
 
 - Visual Studio Code version 1.105.0 or later
 - Multipass CLI installed and available in system PATH
 
-### Multipass Installation
+### Multipass installation
 
 Install Multipass on your operating system:
 
@@ -134,6 +134,7 @@ The supported  method is installing directly  from the Multipass website:
 Download the installer from [multipass.run](https://multipass.run/)
 
 Alternatively, you can use Homebrew  (it is community supported and may not always be up to date):
+
 ```bash
 brew install --cask multipass
 ```
@@ -162,16 +163,16 @@ Alternatively, install from a VSIX file:
 code --install-extension multipass-run-0.0.1.vsix
 ```
 
-## Getting Started
+## Getting started
 
-### Initial Setup
+### Initial setup
 
 1. Ensure Multipass is installed and the `multipass` command is accessible from your terminal
 2. Open VS Code
 3. Locate the Multipass icon in the Activity Bar (left sidebar)
 4. The extension will automatically detect existing instances
 
-### Creating Your First Instance
+### Creating your first instance
 
 1. Click the Multipass icon to open the sidebar
 2. Select the "+" button in the toolbar
@@ -179,27 +180,27 @@ code --install-extension multipass-run-0.0.1.vsix
 4. The instance will appear in the list with a "Creating" status
 5. Once started, the instance will display its IP address and release information
 
-### Viewing Instance Details
+### Viewing instance details
 
 1. Start an instance if it is not already running
 2. Click on the instance name in the sidebar
 3. The details panel will expand to show system metrics
 
-## How-to Guides
+## How-to guides
 
-### How to Start a Stopped Instance
+### How to start a stopped instance
 
 1. Right-click the stopped instance in the sidebar
 2. Select "Start Instance" from the context menu
 3. The instance state will change to "Starting", then "Running"
 
-### How to Suspend a Running Instance
+### How to suspend a running instance
 
 1. Right-click the running instance
 2. Select "Pause (Suspend)" from the context menu
 3. The instance will be suspended and marked accordingly
 
-### How to Delete and Recover an Instance
+### How to delete and recover an instance
 
 **Delete:**
 
@@ -213,14 +214,14 @@ code --install-extension multipass-run-0.0.1.vsix
 2. Right-click the deleted instance
 3. Select "Recover Instance"
 
-### How to Permanently Remove an Instance
+### How to permanently remove an instance
 
 1. Delete the instance following the deletion steps above
 2. Right-click the deleted instance
 3. Select "Purge Instance" (shown in red)
 4. Confirm the action - this operation is irreversible
 
-### How to Create a Custom Instance
+### How to create a custom instance
 
 1. Click the "+" button in the toolbar
 2. Select "Create instance with custom configuration"
@@ -241,7 +242,7 @@ The extension contributes the following commands to the Command Palette:
 - `multipass-run.refresh` - Manually refresh the instance list
 - `multipass-run.createInstanceMenu` - Open the instance creation menu
 
-### Instance States
+### Instance states
 
 The extension displays the following instance states:
 
@@ -261,7 +262,7 @@ The extension does not currently expose configuration settings. All behavior is 
 
 ## Troubleshooting
 
-### Instance List Not Updating
+### Instance list not updating
 
 The extension polls for status updates every 2 seconds when instances are in transitional states. If updates appear delayed:
 
@@ -269,7 +270,7 @@ The extension polls for status updates every 2 seconds when instances are in tra
 2. Verify Multipass daemon is running: `multipass version`
 3. Check system resources if instances are slow to start
 
-### Command Not Found
+### Command not found
 
 If the extension cannot locate the Multipass CLI:
 
@@ -277,17 +278,95 @@ If the extension cannot locate the Multipass CLI:
 2. Ensure the command is in your PATH
 3. Restart VS Code after installing Multipass
 
-### Images Not Displaying in Marketplace
 
-If you are viewing this README on the Marketplace and images are not loading, this may indicate a repository configuration issue. Images are hosted in the extension repository and require proper configuration in package.json.
 
-## Known Limitations
+## Security
+
+The extension touches your `~/.ssh/config`, generates a key pair, and runs
+commands inside guest VMs. The choices below are designed to fail safely if
+something unexpected happens (manual edits to your SSH config, a multipass
+binary that has been moved, a guest that already has the public key, etc.).
+
+### SSH keys
+
+- **Default key type is ed25519.** Smaller, faster, and equally strong
+  compared to RSA-4096. Supported by OpenSSH 6.5+ on macOS, Linux, and
+  Windows 10 1803+.
+- **Existing `~/.ssh/multipass_id_rsa` is preserved.** If you already had a
+  legacy RSA key from an older version of the extension, it keeps being used
+  for new VMs so existing connections do not break.
+- **The public key is installed via `multipass transfer` + `sh -c`,** not by
+  interpolating its content into a shell string. Lines like
+  `bash -c "grep -F '<public-key>' ..."` are intentionally avoided to remove
+  one class of injection bugs.
+- **Idempotent installation.** The extension reads the guest's
+  `~/.ssh/authorized_keys` first and skips the transfer if the key is
+  already present.
+- **Last-VM cleanup prompt.** When you purge the last managed VM, the
+  extension offers to delete the multipass key pair from `~/.ssh/`. You can
+  decline once, or pick "Don't ask again" to silence future prompts.
+
+### SSH config (`~/.ssh/config`)
+
+- **Bracket markers** wrap each managed entry:
+
+  ```
+  # >>> multipass-run: my-vm
+  Host multipass-my-vm
+    HostName 10.0.0.5
+    User ubuntu
+    IdentityFile ~/.ssh/multipass_id_ed25519
+    StrictHostKeyChecking accept-new
+    LogLevel ERROR
+  # <<< multipass-run: my-vm
+  ```
+
+  Removal targets only the bracketed range, so manual edits anywhere else in
+  your config are untouched and scribbles inside a managed block do not
+  prevent the extension from cleaning it up later.
+- **`StrictHostKeyChecking accept-new`** instead of the previous
+  `StrictHostKeyChecking no` + `UserKnownHostsFile /dev/null`. The first
+  connection trusts the host key; subsequent connections detect tampering.
+- **Migration of legacy entries.** Older `# Multipass instance: <name>`
+  comment markers are auto-rewrapped with bracket markers on every config
+  write. Deprecated options (`StrictHostKeyChecking no`,
+  `UserKnownHostsFile /dev/null`) inside any managed block are normalized in
+  place.
+- **Orphaned-entry pruning.** The extension scrubs managed blocks whose
+  instance name is not in `multipass list` (e.g. VMs deleted via the
+  multipass CLI directly). Runs once on activation and on demand via the
+  `Multipass: Prune Orphaned SSH Entries` command.
+- **`known_hosts` cleanup.** Purging a VM also runs
+  `ssh-keygen -R multipass-<name>` so a future VM with the same name does
+  not surprise OpenSSH.
+
+### Process boundary
+
+- **Guest commands use `multipass exec` + `multipass transfer`,** not a
+  shell string. Instance names are validated to alphanumeric + hyphen +
+  underscore at creation time.
+- **Multipass binary discovery** walks a known list of install locations
+  (Snap, `/usr/local/bin`, Homebrew, the macOS `.pkg` canonical path, the
+  Windows installer default) and falls back to a PATH lookup so the extension
+  keeps working when VS Code is launched from Spotlight without an inherited
+  shell PATH.
+
+### Known limitations
+
+- Permissions on the SSH config and key files are set to `0600` / `0700`.
+  Windows ignores POSIX bits — the OpenSSH-for-Windows ACL model handles
+  the equivalent guarantee.
+- The extension assumes the default `ubuntu` user inside Multipass guests.
+  Cloud-init configurations that rename the primary user are not yet
+  supported.
+
+## Known limitations
 
 - Instance state synchronization may experience latency during rapid operations
 - The Multipass CLI must be present in the system PATH
 - Detailed information is only available for running instances
 
-## Release Notes
+## Release notes
 
 ### Version 0.0.1
 
@@ -310,7 +389,7 @@ Contributions are welcome. Please submit issues and pull requests to the [GitHub
 
 This extension is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-## Additional Information
+## Additional information
 
 - [Multipass Documentation](https://multipass.run/docs)
 - [VS Code Extension API](https://code.visualstudio.com/api)
