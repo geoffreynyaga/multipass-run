@@ -2,6 +2,7 @@ import React from 'react';
 
 import type { InlineLaunchConfig } from '../../App';
 import type { InlineLaunchFormProps } from './types';
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../../utils/launchDefaults';
 import { getMonoFont } from '../../utils/fontUtils';
 
 export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
@@ -23,9 +24,9 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	const [name, setName] = React.useState('');
 	const [distro, setDistro] = React.useState<InlineLaunchConfig['distro']>('ubuntu');
 	const [selectedImageKey, setSelectedImageKey] = React.useState('');
-	const [cpus, setCpus] = React.useState('2');
-	const [memory, setMemory] = React.useState('2');
-	const [disk, setDisk] = React.useState('10');
+	const [cpus, setCpus] = React.useState(CUSTOM_INSTANCE_DEFAULTS.cpus);
+	const [memory, setMemory] = React.useState(CUSTOM_INSTANCE_DEFAULTS.memoryGb);
+	const [disk, setDisk] = React.useState(CUSTOM_INSTANCE_DEFAULTS.diskGb);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const isCustom = mode === 'custom';
 	const supportsAlternativeDistros = multipassCapabilities.supportsAlternativeDistros;

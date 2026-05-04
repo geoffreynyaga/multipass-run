@@ -5,6 +5,7 @@ import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
 import { buildImageOptions } from '../../utils/multipassImages';
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../utils/launchDefaults';
 
 export interface DetailedInstanceConfig {
 	name: string;
@@ -99,8 +100,8 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 	// Step 3: CPUs
 	const cpusInput = await vscode.window.showInputBox({
 		prompt: 'Step 3/5: Number of CPUs',
-		placeHolder: '1',
-		value: '1',
+		placeHolder: CUSTOM_INSTANCE_DEFAULTS.cpus,
+		value: CUSTOM_INSTANCE_DEFAULTS.cpus,
 		validateInput: (value) => {
 			const num = parseInt(value);
 			if (isNaN(num) || num < 1) {
@@ -116,9 +117,9 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 
 	// Step 4: Memory
 	const memoryInput = await vscode.window.showInputBox({
-		prompt: 'Step 4/5: Memory size (e.g., 1G, 512M, 2048M)',
-		placeHolder: '1G',
-		value: '1G',
+		prompt: `Step 4/5: Memory size (e.g., ${CUSTOM_INSTANCE_DEFAULTS.memory}, 512M, 2048M)`,
+		placeHolder: CUSTOM_INSTANCE_DEFAULTS.memory,
+		value: CUSTOM_INSTANCE_DEFAULTS.memory,
 		validateInput: (value) => {
 			if (!/^\d+(\.\d+)?[KMG]$/.test(value)) {
 				return 'Format: number with K, M, or G suffix (e.g., 1G, 512M)';
@@ -145,9 +146,9 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 
 	// Step 5: Disk
 	const diskInput = await vscode.window.showInputBox({
-		prompt: 'Step 5/5: Disk size (e.g., 5G, 10G, 2048M)',
-		placeHolder: '5G',
-		value: '5G',
+		prompt: `Step 5/5: Disk size (e.g., ${CUSTOM_INSTANCE_DEFAULTS.disk}, 2048M)`,
+		placeHolder: CUSTOM_INSTANCE_DEFAULTS.disk,
+		value: CUSTOM_INSTANCE_DEFAULTS.disk,
 		validateInput: (value) => {
 			if (!/^\d+(\.\d+)?[KMG]$/.test(value)) {
 				return 'Format: number with K, M, or G suffix (e.g., 5G, 2048M)';
