@@ -39,6 +39,16 @@
         "command": "multipass-run.pruneOrphanedSSHEntries",
         "title": "Multipass: Prune Orphaned SSH Entries",
         "category": "Multipass"
+      },
+      {
+        "command": "multipass-run.openInMultipass",
+        "title": "Open in Multipass",
+        "category": "Multipass Run"
+      },
+      {
+        "command": "multipass-run.launchWithCloudInit",
+        "title": "Launch VM with this cloud-init",
+        "category": "Multipass Run"
       }
     ],
     "viewsContainers": {
@@ -71,6 +81,18 @@
           "command": "multipass-run.createInstanceMenu",
           "when": "view == multipass-run-view",
           "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "multipass-run.openInMultipass",
+          "when": "!resourceScheme || explorerResourceIsFolder",
+          "group": "multipass@1"
+        },
+        {
+          "command": "multipass-run.launchWithCloudInit",
+          "when": "resourceFilename =~ /cloud-init/",
+          "group": "multipass@2"
         }
       ]
     }

@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 
-import { exec, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 
 import { MULTIPASS_PATHS } from '../../utils/constants';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export interface LaunchInstanceOptions {
 	name?: string;
@@ -13,7 +13,34 @@ export interface LaunchInstanceOptions {
 	cpus?: string;
 	memory?: string;
 	disk?: string;
+	cloudInitPath?: string;
 	onProgress?: (message: string, isDownloading?: boolean) => void;
+}
+
+function buildLaunchArgs(options: LaunchInstanceOptions, instanceName: string): string[] {
+	const args: string[] = ['launch'];
+
+	// Image (positional, must come before --name)
+	if (options.image) {
+		args.push(options.image);
+	}
+
+	args.push('--name', instanceName);
+
+	if (options.cpus) {
+		args.push('--cpus', options.cpus);
+	}
+	if (options.memory) {
+		args.push('--memory', options.memory);
+	}
+	if (options.disk) {
+		args.push('--disk', options.disk);
+	}
+	if (options.cloudInitPath) {
+		args.push('--cloud-init', options.cloudInitPath);
+	}
+
+	return args;
 }
 
 export async function launchInstance(
@@ -31,29 +58,10 @@ export async function launchInstance(
 		}
 
 		const instanceName = options.name || `instance-${Date.now()}`;
+		const args = buildLaunchArgs(options, instanceName);
 
-		// Build command with optional parameters
-		let command = `launch`;
-
-		// Add image if specified (must come before --name)
-		if (options.image) {
-			command += ` ${options.image}`;
-		}
-
-		command += ` --name ${instanceName}`;
-
-		console.log('[launchInstance] Full command:', command);
+		console.log('[launchInstance] Args:', args.join(' '));
 		console.log('[launchInstance] Image:', options.image);
-
-		if (options.cpus) {
-			command += ` --cpus ${options.cpus}`;
-		}
-		if (options.memory) {
-			command += ` --memory ${options.memory}`;
-		}
-		if (options.disk) {
-			command += ` --disk ${options.disk}`;
-		}
 
 		let wasDownloading = false;
 
@@ -62,7 +70,6 @@ export async function launchInstance(
 				// If we have a progress callback, use spawn to monitor output
 				if (options.onProgress) {
 					const result = await new Promise<{ success: boolean; error?: string; wasDownloading: boolean }>((resolve) => {
-						const args = command.split(' ');
 						const proc = spawn(multipassPath, args);
 
 						let stdout = '';
@@ -122,8 +129,9 @@ export async function launchInstance(
 						continue;
 					}
 				} else {
-					// Fallback to simple exec if no progress callback
-					await execAsync(`${multipassPath} ${command}`);
+					// Fallback when no progress callback — execFile with arg array
+					// avoids shell quoting/space issues that break exec on paths with spaces.
+					await execFileAsync(multipassPath, args);
 					return { success: true, instanceName, wasDownloading: false };
 				}
 			} catch (err) {
