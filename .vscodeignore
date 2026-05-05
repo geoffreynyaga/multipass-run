@@ -12,3 +12,15 @@ vsc-extension-quickstart.md
 **/*.map
 **/*.ts
 **/.vscode-test.*
+AGENTS.md
+DESIGN.md
+DESIGN-OPUS.md
+DISCUSSION.md
+ideas.md
+pnpm-lock.yaml
+jest.config.js
+postcss.config.js
+tailwind.config.js
+.claude/
+.fallow/
+claude-design/
