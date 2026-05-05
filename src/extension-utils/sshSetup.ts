@@ -5,7 +5,10 @@ import { MultipassService } from '../multipassService';
  * Setup SSH connection for an instance
  * Checks for Remote-SSH extension, waits for instance to be ready, and configures SSH
  */
-export async function setupSSHConnection(instanceName: string): Promise<void> {
+export async function setupSSHConnection(
+	instanceName: string,
+	opts?: { onCancel?: () => void },
+): Promise<void> {
 	try {
 		// Check if Remote-SSH extension is installed
 		const remoteSSHExtension = vscode.extensions.getExtension('ms-vscode-remote.remote-ssh');
@@ -17,7 +20,10 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 			);
 			if (install === 'Install') {
 				await vscode.commands.executeCommand('workbench.extensions.installExtension', 'ms-vscode-remote.remote-ssh');
-				vscode.window.showInformationMessage('Please reload VS Code after the extension installs, then try again.');
+				// Open the extension page so the user can watch install progress
+				// and reload from there once it's done.
+				await vscode.commands.executeCommand('extension.open', 'ms-vscode-remote.remote-ssh');
+				vscode.window.showInformationMessage('Reload VS Code after Remote-SSH finishes installing, then try again.');
 			}
 			return;
 		}
@@ -83,6 +89,9 @@ export async function setupSSHConnection(instanceName: string): Promise<void> {
 				await MultipassService.connectToInstanceViaSSH(instanceName);
 			} else if (selection === 'Open Remote-SSH View') {
 				await MultipassService.openRemoteSSHView();
+			} else {
+				// Cancel or Esc — notify caller so it can redirect focus
+				opts?.onCancel?.();
 			}
 		} else {
 			vscode.window.showErrorMessage(

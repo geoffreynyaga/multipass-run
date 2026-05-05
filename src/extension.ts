@@ -1,6 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as nodePath from 'path';
+import * as nodeFs from 'fs';
 
 import { MultipassService } from './multipassService';
 import { MULTIPASS_PATHS } from './utils/constants';
@@ -11,6 +13,8 @@ import { getMultipassCapabilities } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 import { buildImageOptions, pickImageForDistro, type MultipassDistro } from './utils/multipassImages';
+import { mountFolder } from './commands/mountFolder';
+import { isCloudInitFile } from './utils/cloudInitDetect';
 
 // Extension utilities
 import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
@@ -597,6 +601,379 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		);
 	}
 
+	private suggestVMNameFromFolder(folderName: string): string {
+		// Sanitize: drop non-alphanumeric/dash, collapse repeats, strip leading/trailing dashes
+		const cleaned = folderName
+			.replace(/[^a-zA-Z0-9-]/g, '-')
+			.replace(/-+/g, '-')
+			.replace(/^-+|-+$/g, '')
+			.toLowerCase();
+		const safe = cleaned || 'instance';
+		return /^[a-zA-Z]/.test(safe) ? safe : `vm-${safe}`;
+	}
+
+	private async launchAndTrack(opts: {
+		instanceName: string;
+		image?: string;
+		release?: string;
+		cpus?: string;
+		memory?: string;
+		disk?: string;
+		cloudInitPath?: string;
+		progressTitle: string;
+		afterLaunch?: (progress: vscode.Progress<{ message?: string }>) => Promise<void>;
+	}): Promise<boolean> {
+		const release = opts.release ?? 'Ubuntu';
+
+		await this.pendingStore.add({
+			name: opts.instanceName,
+			release,
+			startedAt: Date.now(),
+			status: 'launching',
+			config: {
+				image: opts.image,
+				cpus: opts.cpus,
+				memory: opts.memory,
+				disk: opts.disk,
+			},
+		});
+
+		// Optimistic sidebar row so the launch is visible immediately
+		if (this._view) {
+			const currentLists = await MultipassService.getInstanceLists();
+			if (!currentLists.error) {
+				const isImageCached = await MultipassService.isImageAlreadyDownloaded(release);
+				currentLists.active.push({
+					name: opts.instanceName,
+					state: isImageCached ? 'Creating' : 'Downloading Image',
+					ipv4: '',
+					release,
+				});
+				this._view.webview.postMessage({
+					command: 'updateInstances',
+					instanceLists: currentLists,
+				});
+			}
+		}
+
+		// `multipass launch` blocks until cloud-init finishes — that can run for
+		// minutes after the VM is already Running, mountable, and SSH-able. So
+		// we run launch in the background and race it against a state poll:
+		// whichever proves the VM is ready first wins, and we move on.
+		const success = await vscode.window.withProgress(
+			{
+				location: vscode.ProgressLocation.Notification,
+				title: opts.progressTitle,
+				cancellable: false,
+			},
+			async (progress) => {
+				const launchPromise = launchInstance({
+					name: opts.instanceName,
+					image: opts.image,
+					cpus: opts.cpus,
+					memory: opts.memory,
+					disk: opts.disk,
+					cloudInitPath: opts.cloudInitPath,
+					onProgress: (msg) => progress.report({ message: msg }),
+				});
+
+				let launchSettled: Awaited<typeof launchPromise> | null = null;
+				launchPromise.then(r => { launchSettled = r; }).catch(() => { /* tracked via timeout */ });
+
+				const startMs = Date.now();
+				const maxWaitMs = 5 * 60 * 1000;
+				let running = false;
+
+				while (Date.now() - startMs < maxWaitMs) {
+					await new Promise(r => setTimeout(r, 3000));
+
+					if (launchSettled) { break; }
+
+					const lists = await MultipassService.getInstanceLists();
+					if (!lists.error) {
+						const inst = lists.active.find(x => x.name === opts.instanceName);
+						if (inst) {
+							progress.report({ message: `${inst.state}...` });
+							if (inst.state.toLowerCase() === 'running') {
+								running = true;
+								break;
+							}
+						}
+					}
+				}
+
+				// Resolve outcome
+				if (launchSettled) {
+					if (!(launchSettled as { success: boolean }).success) {
+						vscode.window.showErrorMessage(
+							`Failed to launch '${opts.instanceName}': ${(launchSettled as { error?: string }).error}`
+						);
+						return false;
+					}
+				} else if (!running) {
+					vscode.window.showErrorMessage(
+						`'${opts.instanceName}' did not reach Running within 5 minutes.`
+					);
+					return false;
+				} else {
+					// VM is Running but launch process is still wrapping up cloud-init.
+					// Let it finish in the background so the daemon stays consistent.
+					launchPromise.then(r => {
+						if (!r.success) {
+							console.warn(
+								`[launchAndTrack] background launch for '${opts.instanceName}' resolved with error:`,
+								r.error
+							);
+						}
+					});
+				}
+
+				if (opts.afterLaunch) {
+					await opts.afterLaunch(progress);
+				}
+				return true;
+			}
+		);
+
+		await this.pendingStore.remove(opts.instanceName);
+
+		if (success) {
+			pollInstanceStatus(opts.instanceName, () => this.refresh());
+			return true;
+		} else {
+			await this.refresh();
+			return false;
+		}
+	}
+
+	public async openFolderInMultipass(uri?: vscode.Uri): Promise<void> {
+		// Resolve host folder path
+		let folderPath: string | undefined;
+
+		if (!uri) {
+			// Empty-space click in explorer — resolve workspace root
+			const roots = vscode.workspace.workspaceFolders ?? [];
+			if (roots.length === 0) {
+				const picked = await vscode.window.showOpenDialog({
+					canSelectFolders: true,
+					canSelectFiles: false,
+					canSelectMany: false,
+					openLabel: 'Open in Multipass',
+				});
+				if (!picked?.length) { return; }
+				folderPath = picked[0].fsPath;
+			} else if (roots.length === 1) {
+				folderPath = roots[0].uri.fsPath;
+			} else {
+				const pick = await vscode.window.showQuickPick(
+					roots.map(r => ({ label: r.name, description: r.uri.fsPath, fsPath: r.uri.fsPath })),
+					{ title: 'Open in Multipass', placeHolder: 'Select workspace root to mount' }
+				);
+				if (!pick) { return; }
+				folderPath = pick.fsPath;
+			}
+		} else {
+			const stat = await vscode.workspace.fs.stat(uri);
+			folderPath = stat.type === vscode.FileType.Directory
+				? uri.fsPath
+				: nodePath.dirname(uri.fsPath);
+		}
+
+		// Resolve symlinks — multipass can choke on some symlink chains
+		try { folderPath = nodeFs.realpathSync(folderPath); } catch { /* keep original */ }
+
+		const folderName = nodePath.basename(folderPath);
+		const guestPath = `/home/ubuntu/${folderName}`;
+
+		// Get instance list
+		const lists = await MultipassService.getInstanceLists();
+		if (lists.error) {
+			vscode.window.showErrorMessage(`Cannot open in Multipass: ${lists.error.message}`);
+			return;
+		}
+
+		type InstanceItem = vscode.QuickPickItem & { id: 'new' | 'existing'; vmName?: string; vmState?: string };
+
+		const items: InstanceItem[] = [
+			{
+				label: '$(add) Launch new VM with this folder',
+				description: `mounts ${folderPath} → ${guestPath}`,
+				id: 'new',
+			},
+			...lists.active.map(i => ({
+				label: `$(vm) ${i.name}`,
+				description: i.state.toLowerCase() === 'running'
+					? i.state
+					: `${i.state} — will start first`,
+				id: 'existing' as const,
+				vmName: i.name,
+				vmState: i.state,
+			})),
+		];
+
+		const selected = await vscode.window.showQuickPick(items, {
+			title: `Open in Multipass: ${folderName}`,
+			placeHolder: 'Launch new VM or mount into existing instance',
+		});
+
+		if (!selected) { return; }
+
+		if (selected.id === 'new') {
+			const suggestedName = this.suggestVMNameFromFolder(folderName);
+
+			const instanceName = await vscode.window.showInputBox({
+				title: 'New VM name',
+				value: suggestedName,
+				prompt: 'Name for the new VM',
+				validateInput: async (v) => {
+					if (!v || !/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(v)) {
+						return 'Must start with a letter, end with letter or digit, no spaces';
+					}
+					if (await MultipassService.instanceNameExists(v)) {
+						return `'${v}' already exists`;
+					}
+					return null;
+				},
+			});
+			if (!instanceName) { return; }
+
+			let mountSucceeded = false;
+			const ok = await this.launchAndTrack({
+				instanceName,
+				progressTitle: `Launching ${instanceName}`,
+				afterLaunch: async (progress) => {
+					progress.report({ message: 'Mounting folder...' });
+					const mountResult = await mountFolder(instanceName, folderPath!, guestPath);
+					if (mountResult.success) {
+						mountSucceeded = true;
+						vscode.window.showInformationMessage(
+							`Mounted ${folderName} into '${instanceName}' at ${guestPath}`
+						);
+					} else {
+						vscode.window.showWarningMessage(
+							`'${instanceName}' launched but mount failed: ${mountResult.error}`
+						);
+					}
+				},
+			});
+
+			// Auto-trigger SSH so a new window can open into the mounted folder.
+			// Without this, a user unfamiliar with multipass has no obvious next step.
+			if (ok && mountSucceeded) {
+				await setupSSHConnection(instanceName, {
+					onCancel: () => vscode.commands.executeCommand('workbench.view.extension.multipass-run-sidebar'),
+				});
+			}
+		} else {
+			const vmName = selected.vmName!;
+			const isRunning = selected.vmState?.toLowerCase() === 'running';
+
+			if (!isRunning) {
+				const go = await vscode.window.showInformationMessage(
+					`'${vmName}' is ${selected.vmState}. Start it and mount?`,
+					'Start and Mount',
+					'Cancel'
+				);
+				if (go !== 'Start and Mount') { return; }
+
+				const startResult = await MultipassService.startInstance(vmName);
+				if (!startResult.success) {
+					vscode.window.showErrorMessage(`Failed to start '${vmName}': ${startResult.error}`);
+					return;
+				}
+
+				// Poll until Running (3 s × 20 = 60 s ceiling). Track success so we
+				// can surface a real error instead of letting mount fail confusingly.
+				let started = false;
+				await vscode.window.withProgress(
+					{ location: vscode.ProgressLocation.Notification, title: `Starting ${vmName}...` },
+					async () => {
+						for (let i = 0; i < 20; i++) {
+							await new Promise(r => setTimeout(r, 3000));
+							const check = await MultipassService.getInstanceLists();
+							if (!check.error) {
+								const inst = check.active.find(x => x.name === vmName);
+								if (inst?.state.toLowerCase() === 'running') {
+									started = true;
+									return;
+								}
+							}
+						}
+					}
+				);
+				await this.refresh();
+
+				if (!started) {
+					vscode.window.showErrorMessage(
+						`'${vmName}' did not reach Running within 60 s. Mount aborted.`
+					);
+					return;
+				}
+			}
+
+			const mountResult = await mountFolder(vmName, folderPath!, guestPath);
+			if (mountResult.success) {
+				vscode.window.showInformationMessage(
+					`Mounted ${folderName} into '${vmName}' at ${guestPath}`
+				);
+				await this.refresh();
+				// Same auto-SSH as the new-VM branch — give the user a path to
+				// actually use the mounted folder without learning multipass first.
+				await setupSSHConnection(vmName, {
+					onCancel: () => vscode.commands.executeCommand('workbench.view.extension.multipass-run-sidebar'),
+				});
+			} else {
+				vscode.window.showErrorMessage(`Mount failed: ${mountResult.error}`);
+			}
+		}
+	}
+
+	public async launchWithCloudInit(uri: vscode.Uri): Promise<void> {
+		// Content sniff — filename when-clause matched on "cloud-init" but file
+		// could be empty or unrelated; verify before launching arbitrary YAML.
+		const detected = await isCloudInitFile(uri);
+
+		if (!detected) {
+			const go = await vscode.window.showWarningMessage(
+				`'${nodePath.basename(uri.fsPath)}' doesn't look like a cloud-init file. Launch anyway?`,
+				'Launch',
+				'Cancel'
+			);
+			if (go !== 'Launch') { return; }
+		}
+
+		const instanceName = await vscode.window.showInputBox({
+			title: 'New VM name',
+			prompt: 'Name for the VM to launch with this cloud-init',
+			placeHolder: 'my-instance',
+			validateInput: async (v) => {
+				if (!v || !/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(v)) {
+					return 'Must start with a letter, end with letter or digit, no spaces';
+				}
+				if (await MultipassService.instanceNameExists(v)) {
+					return `'${v}' already exists`;
+				}
+				return null;
+			},
+		});
+		if (!instanceName) { return; }
+
+		const ok = await this.launchAndTrack({
+			instanceName,
+			cloudInitPath: uri.fsPath,
+			progressTitle: `Launching ${instanceName} with cloud-init`,
+		});
+
+		if (ok) {
+			vscode.window.showInformationMessage(
+				`Instance '${instanceName}' launched with cloud-init.`
+			);
+			// Auto-SSH so a non-multipass user gets a usable VS Code window
+			// without having to discover the SSH action separately.
+			await setupSSHConnection(instanceName);
+		}
+	}
+
 	public async refresh(): Promise<void> {
 		if (!this._view) {
 			return;
@@ -781,6 +1158,20 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}
 		})
+	);
+
+	// Register "Open in Multipass" — explorer folder/empty-space right-click
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.openInMultipass', (uri?: vscode.Uri) =>
+			provider.openFolderInMultipass(uri)
+		)
+	);
+
+	// Register "Launch with cloud-init" — explorer YAML right-click
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.launchWithCloudInit', (uri: vscode.Uri) =>
+			provider.launchWithCloudInit(uri)
+		)
 	);
 
 	// Register setup SSH command
