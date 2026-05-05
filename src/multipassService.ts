@@ -1,64 +1,46 @@
-import { connectToInstanceViaSSH as connectToInstanceViaSSHCommand, countManagedSSHEntries as countManagedSSHEntriesCommand, openRemoteSSHView as openRemoteSSHViewCommand, pruneOrphanedSSHEntries as pruneOrphanedSSHEntriesCommand, removeManagedSSHKeyPair as removeManagedSSHKeyPairCommand, removeSSHConfigForInstance as removeSSHConfigForInstanceCommand, setupSSHForInstance as setupSSHForInstanceCommand } from './utils/sshConfig';
-// Import functions from command modules
-import { getInstanceLists as getInstanceListsCommand, getInstances as getInstancesCommand } from './commands/listInstances';
+// SSH utilities — imported for the MultipassService class
+import {
+	connectToInstanceViaSSH as connectToInstanceViaSSHCommand,
+	countManagedSSHEntries as countManagedSSHEntriesCommand,
+	openRemoteSSHView as openRemoteSSHViewCommand,
+	pruneOrphanedSSHEntries as pruneOrphanedSSHEntriesCommand,
+	removeManagedSSHKeyPair as removeManagedSSHKeyPairCommand,
+	removeSSHConfigForInstance as removeSSHConfigForInstanceCommand,
+	setupSSHForInstance as setupSSHForInstanceCommand,
+} from './utils/sshConfig';
 
-import { createDefaultInstance as createDefaultInstanceCommand } from './commands/launch/createDefaultInstance';
-import { createDetailedInstance as createDetailedInstanceCommand } from './commands/launch/createDetailedInstance';
+// Instance commands — imported for the MultipassService class
+import { getInstanceLists as getInstanceListsCommand, getInstances as getInstancesCommand } from './commands/listInstances';
 import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
 import { findImages as findImagesCommand } from './commands/findImages';
 import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
 import { instanceNameExists as instanceNameExistsCommand } from './commands/launch/instanceNameExists';
 import { isImageAlreadyDownloaded as isImageAlreadyDownloadedCommand } from './utils/isImageAlreadyDownloaded';
-import { launchInstance as launchInstanceCommand } from './commands/launch/launchInstance';
-import { purgeInstance as purgeInstanceCommand } from './commands/purgeInstance';
 import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
 import { setupSSH as setupSSHCommand } from './utils/setupSSH';
-import { shellInstance as shellInstanceCommand } from './commands/shell';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
 import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
 
-// Re-export types and functions
-export type { MultipassInstance, InstanceLists } from './commands/listInstances';
+// Re-export types consumed by the webview
+export type { InstanceLists } from './commands/listInstances';
 export type { MultipassInstanceInfo } from './commands/getInstanceInfo';
-export type { LaunchInstanceOptions } from './commands/launch/launchInstance';
-export type { DetailedInstanceConfig } from './commands/launch/createDetailedInstance';
-export type { MultipassImage, FindImagesResult } from './commands/findImages';
-export type { CreateInstanceCallbacks, CreateInstanceResult } from './commands/launch/createDefaultInstance';
-export type { SSHSetupResult } from './utils/sshConfig';
-export { getInstances, getInstanceLists } from './commands/listInstances';
-export { getInstanceInfo } from './commands/getInstanceInfo';
-export { stopInstance } from './commands/stopInstance';
-export { startInstance } from './commands/startInstance';
-export { launchInstance } from './commands/launch/launchInstance';
+
+// Re-export functions consumed directly (not via MultipassService)
 export { createDefaultInstance } from './commands/launch/createDefaultInstance';
 export { createDetailedInstance } from './commands/launch/createDetailedInstance';
-export { deleteInstance } from './commands/deleteInstance';
-export { recoverInstance } from './commands/recoverInstance';
-export { purgeInstance } from './commands/purgeInstance';
-export { suspendInstance } from './commands/suspendInstance';
-export { shellInstance } from './commands/shell';
-export { findImages } from './commands/findImages';
-export { setupSSHForInstance, removeSSHConfigForInstance, connectToInstanceViaSSH, countManagedSSHEntries, removeManagedSSHKeyPair, pruneOrphanedSSHEntries, openRemoteSSHView } from './utils/sshConfig';
-export { isImageAlreadyDownloaded } from './utils/isImageAlreadyDownloaded';
-export { instanceNameExists } from './commands/launch/instanceNameExists';
-export { setupSSH } from './utils/setupSSH';
+export { launchInstance } from './commands/launch/launchInstance';
 
-// Maintain backward compatibility with class-based API
+// Backward-compatible class-based API — consumers call MultipassService.xxx()
 export class MultipassService {
 	public static getInstances = getInstancesCommand;
 	public static getInstanceLists = getInstanceListsCommand;
 	public static getInstanceInfo = getInstanceInfoCommand;
 	public static stopInstance = stopInstanceCommand;
 	public static startInstance = startInstanceCommand;
-	public static launchInstance = launchInstanceCommand;
-	public static createDefaultInstance = createDefaultInstanceCommand;
-	public static createDetailedInstance = createDetailedInstanceCommand;
 	public static deleteInstance = deleteInstanceCommand;
 	public static recoverInstance = recoverInstanceCommand;
-	public static purgeInstance = purgeInstanceCommand;
 	public static suspendInstance = suspendInstanceCommand;
-	public static shellInstance = shellInstanceCommand;
 	public static findImages = findImagesCommand;
 	public static setupSSHForInstance = setupSSHForInstanceCommand;
 	public static removeSSHConfigForInstance = removeSSHConfigForInstanceCommand;
@@ -71,4 +53,3 @@ export class MultipassService {
 	public static instanceNameExists = instanceNameExistsCommand;
 	public static setupSSH = setupSSHCommand;
 }
-
