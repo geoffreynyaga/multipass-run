@@ -1,6 +1,16 @@
 # Change Log
 
+## [0.0.4] - 2026-05-05
 
+### Added
+- **Cloud-init YAML launch** from sidebar (Open cloud-init YAML) and Explorer right-click
+- **Open in Multipass** Explorer entry point — mount any folder into a VM
+- Cloud-init detection and validation before launch
+
+### Changed
+- Refactored App.tsx — extracted InstallMissingScreen, DaemonErrorScreen, and Icons into components
+- Pruned dead code from MultipassService (21 unused exports, 5 dead class members)
+- SSH popup Cancel now redirects to the Multipass sidebar
 
 ## [0.0.2] - 2025-11-09
 

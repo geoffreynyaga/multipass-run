@@ -46,10 +46,11 @@ View and manage all Multipass instances from the VS Code sidebar. The extension 
 
 <br>
 
-Create new instances using one of two methods:
+Create new instances using one of these methods:
 
 - Quick creation with default configuration
 - Custom creation with user-defined CPU, memory, and disk parameters
+- Cloud-init YAML for advanced provisioning
 
 <img src="media/features/create-options.png" alt="Create Options" width="500">
 
@@ -220,6 +221,14 @@ code --install-extension multipass-run-0.0.1.vsix
 2. Right-click the deleted instance
 3. Select "Purge Instance" (shown in red)
 4. Confirm the action - this operation is irreversible
+
+### How to launch with cloud-init
+
+1. Save your cloud-init YAML (must start with `#cloud-config`)
+2. Right-click the file in Explorer → **Launch VM with this cloud-init**
+   - Or: Click "+" in the sidebar → **Open cloud-init YAML** → pick your file
+3. Enter a VM name when prompted
+4. The instance launches with your provisioning script
 
 ### How to create a custom instance
 
