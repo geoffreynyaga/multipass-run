@@ -1,0 +1,6 @@
+name: not-a-cloud-init
+description: this looks like YAML but is not cloud-init
+
+items:
+  - foo
+  - bar

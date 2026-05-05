@@ -20,13 +20,24 @@ export const env = {
 };
 
 export class Uri {
+	constructor(public fsPath?: string) {}
 	static joinPath(..._args: unknown[]): Uri {
 		return new Uri();
 	}
 	static parse(_value: string): Uri {
 		return new Uri();
 	}
+	static file(path: string): Uri {
+		return new Uri(path);
+	}
 }
+
+export const FileType = {
+	Unknown: 0,
+	File: 1,
+	Directory: 2,
+	SymbolicLink: 64,
+};
 
 export const ProgressLocation = { Notification: 15 };
 export const QuickPickItemKind = { Separator: -1, Default: 0 };
@@ -40,6 +51,13 @@ export const workspace = {
 		get: jest.fn(),
 		update: jest.fn(),
 	}),
+	fs: {
+		readFile: jest.fn(async (uri: Uri) => {
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			const fs = require('fs');
+			return fs.promises.readFile((uri as any).fsPath);
+		}),
+	},
 };
 
 export const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 };

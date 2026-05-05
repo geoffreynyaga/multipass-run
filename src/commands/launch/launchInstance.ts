@@ -17,7 +17,7 @@ export interface LaunchInstanceOptions {
 	onProgress?: (message: string, isDownloading?: boolean) => void;
 }
 
-function buildLaunchArgs(options: LaunchInstanceOptions, instanceName: string): string[] {
+export function buildLaunchArgs(options: LaunchInstanceOptions, instanceName: string): string[] {
 	const args: string[] = ['launch'];
 
 	// Image (positional, must come before --name)

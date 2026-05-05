@@ -1,0 +1,7 @@
+#cloud-config
+packages:
+  - htop
+  - neofetch
+
+runcmd:
+  - echo "hello from multipass-run" > /home/ubuntu/greeting.txt
