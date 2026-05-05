@@ -5,8 +5,15 @@ node_modules
 *.vsix
 
 
-claude-design/
 
 .fallow/
-
 .DS_Store
+
+
+claude-design/
+
+AGENTS.md
+DESIGN.md
+DESIGN-OPUS.md
+DISCUSSION.md
+ideas.md

@@ -448,7 +448,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 					options: buildImageOptions(imagesResult.images, distro),
 				});
 			} else if (message.command === 'launchCloudInitInstance') {
-				vscode.window.showInformationMessage('Cloud-init launches are coming soon.');
+				this.launchCloudInitFromSidebar();
 			} else if (message.command === 'launchProfileInstance') {
 				vscode.window.showInformationMessage('Profile launches are coming soon.');
 			} else if (message.command === 'deleteInstance') {
@@ -970,6 +970,61 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			);
 			// Auto-SSH so a non-multipass user gets a usable VS Code window
 			// without having to discover the SSH action separately.
+			await setupSSHConnection(instanceName);
+		}
+	}
+
+	/**
+	 * Sidebar "Open cloud-init YAML" entry point — file picker → validate → launch.
+	 */
+	public async launchCloudInitFromSidebar(): Promise<void> {
+		const picked = await vscode.window.showOpenDialog({
+			title: 'Open cloud-init YAML',
+			canSelectFiles: true,
+			canSelectFolders: false,
+			canSelectMany: false,
+			filters: { YAML: ['yaml', 'yml'] },
+		});
+		if (!picked?.length) { return; }
+
+		const uri = picked[0];
+		const detected = await isCloudInitFile(uri);
+
+		if (!detected) {
+			const go = await vscode.window.showWarningMessage(
+				`'${nodePath.basename(uri.fsPath)}' doesn't look like a cloud-init file. Launch anyway?`,
+				'Launch',
+				'Cancel'
+			);
+			if (go !== 'Launch') { return; }
+		}
+
+		const instanceName = await vscode.window.showInputBox({
+			title: 'New VM name',
+			prompt: 'Name for the VM to launch with this cloud-init',
+			placeHolder: 'my-instance',
+			validateInput: async (v) => {
+				if (!v || !/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(v)) {
+					return 'Must start with a letter, end with letter or digit, no spaces';
+				}
+				if (await MultipassService.instanceNameExists(v)) {
+					return `'${v}' already exists`;
+				}
+				return null;
+			},
+		});
+		if (!instanceName) { return; }
+
+		const ok = await this.launchAndTrack({
+			instanceName,
+			cloudInitPath: uri.fsPath,
+			progressTitle: `Launching ${instanceName} with cloud-init`,
+		});
+
+		if (ok) {
+			vscode.window.showInformationMessage(
+				`Instance '${instanceName}' launched with cloud-init.`
+			);
 			await setupSSHConnection(instanceName);
 		}
 	}
