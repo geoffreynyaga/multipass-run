@@ -89,12 +89,12 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		memory?: string;
 		disk?: string;
 	}): Promise<void> {
-		const instanceName = config.name?.trim() || `multipass-${Date.now().toString(36)}`;
-		if (!/^[a-zA-Z0-9-_]+$/.test(instanceName)) {
+		const instanceName = config.name?.trim();
+		if (instanceName && !/^[a-zA-Z0-9-_]+$/.test(instanceName)) {
 			vscode.window.showErrorMessage('Instance name can only contain letters, numbers, hyphens, and underscores.');
 			return;
 		}
-		if (await MultipassService.instanceNameExists(instanceName)) {
+		if (instanceName && await MultipassService.instanceNameExists(instanceName)) {
 			vscode.window.showErrorMessage(`Instance '${instanceName}' already exists. Please choose a different name.`);
 			return;
 		}
@@ -135,20 +135,22 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 			}
 		}
 
-		await this.pendingStore.add({
-			name: instanceName,
-			release: image.release,
-			startedAt: Date.now(),
-			status: 'launching',
-			config: {
-				image: image.imageKey,
-				cpus: isCustom ? config.cpus : undefined,
-				memory: isCustom ? config.memory : undefined,
-				disk: isCustom ? config.disk : undefined,
-			},
-		});
+		if (instanceName) {
+			await this.pendingStore.add({
+				name: instanceName,
+				release: image.release,
+				startedAt: Date.now(),
+				status: 'launching',
+				config: {
+					image: image.imageKey,
+					cpus: isCustom ? config.cpus : undefined,
+					memory: isCustom ? config.memory : undefined,
+					disk: isCustom ? config.disk : undefined,
+				},
+			});
+		}
 
-		if (this._view) {
+		if (this._view && instanceName) {
 			const currentLists = await MultipassService.getInstanceLists();
 			const isImageCached = await MultipassService.isImageAlreadyDownloaded(image.release);
 			currentLists.active.push({
@@ -166,7 +168,7 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		const result = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `Launching ${instanceName}`,
+				title: instanceName ? `Launching ${instanceName}` : 'Launching instance',
 				cancellable: false,
 			},
 			async (progress) => {
@@ -182,12 +184,27 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		);
 
 		if (result.success) {
-			await this.pendingStore.remove(instanceName);
-			vscode.window.showInformationMessage(`Instance '${instanceName}' launched.`);
-			pollInstanceStatus(instanceName, () => this.refresh());
+			if (instanceName) {
+				await this.pendingStore.remove(instanceName);
+			}
+			const launchedName = result.instanceName || instanceName;
+			vscode.window.showInformationMessage(
+				launchedName ? `Instance '${launchedName}' launched.` : 'Instance launched.'
+			);
+			if (launchedName) {
+				pollInstanceStatus(launchedName, () => this.refresh());
+			} else {
+				await this.refresh();
+			}
 		} else {
-			await this.pendingStore.remove(instanceName);
-			vscode.window.showErrorMessage(`Failed to launch instance '${instanceName}': ${result.error}`);
+			if (instanceName) {
+				await this.pendingStore.remove(instanceName);
+			}
+			vscode.window.showErrorMessage(
+				instanceName
+					? `Failed to launch instance '${instanceName}': ${result.error}`
+					: `Failed to launch instance: ${result.error}`
+			);
 			await this.refresh();
 		}
 	}

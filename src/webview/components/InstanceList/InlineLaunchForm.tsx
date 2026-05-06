@@ -113,10 +113,10 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 			return;
 		}
 		setIsSubmitting(true);
-		const instanceName = name.trim() || `multipass-${Date.now().toString(36)}`;
+		const instanceName = name.trim();
 		onLaunchFromInlineForm({
 			mode,
-			name: instanceName,
+			name: instanceName || undefined,
 			distro,
 			image: isCustom ? selectedImage?.imageKey : undefined,
 			imageRelease: isCustom ? selectedImage?.release : undefined,
@@ -124,12 +124,14 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 			memory: isCustom ? `${memory}G` : undefined,
 			disk: isCustom ? `${disk}G` : undefined
 		});
-		onOptimisticLaunch({
-			name: instanceName,
-			release: selectedImage?.release || (distro === 'ubuntu'
-				? 'Ubuntu LTS'
-				: `${distro.charAt(0).toUpperCase()}${distro.slice(1)}`)
-		});
+		if (instanceName) {
+			onOptimisticLaunch({
+				name: instanceName,
+				release: selectedImage?.release || (distro === 'ubuntu'
+					? 'Ubuntu LTS'
+					: `${distro.charAt(0).toUpperCase()}${distro.slice(1)}`)
+			});
+		}
 		onBack();
 	};
 

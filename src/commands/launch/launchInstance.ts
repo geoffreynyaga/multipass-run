@@ -17,7 +17,12 @@ export interface LaunchInstanceOptions {
 	onProgress?: (message: string, isDownloading?: boolean) => void;
 }
 
-export function buildLaunchArgs(options: LaunchInstanceOptions, instanceName: string): string[] {
+export function parseLaunchedInstanceName(output: string): string | undefined {
+	const match = output.match(/Launched:\s*([^\s]+)/i);
+	return match?.[1];
+}
+
+export function buildLaunchArgs(options: LaunchInstanceOptions, instanceName?: string): string[] {
 	const args: string[] = ['launch'];
 
 	// Image (positional, must come before --name)
@@ -25,7 +30,9 @@ export function buildLaunchArgs(options: LaunchInstanceOptions, instanceName: st
 		args.push(options.image);
 	}
 
-	args.push('--name', instanceName);
+	if (instanceName) {
+		args.push('--name', instanceName);
+	}
 
 	if (options.cpus) {
 		args.push('--cpus', options.cpus);
@@ -57,7 +64,7 @@ export async function launchInstance(
 			options = nameOrOptions || {};
 		}
 
-		const instanceName = options.name || `instance-${Date.now()}`;
+		const instanceName = options.name?.trim();
 		const args = buildLaunchArgs(options, instanceName);
 
 		console.log('[launchInstance] Args:', args.join(' '));
@@ -69,7 +76,12 @@ export async function launchInstance(
 			try {
 				// If we have a progress callback, use spawn to monitor output
 				if (options.onProgress) {
-					const result = await new Promise<{ success: boolean; error?: string; wasDownloading: boolean }>((resolve) => {
+					const result = await new Promise<{
+						success: boolean;
+						error?: string;
+						wasDownloading: boolean;
+						output: string;
+					}>((resolve) => {
 						const proc = spawn(multipassPath, args);
 
 						let stdout = '';
@@ -103,12 +115,13 @@ export async function launchInstance(
 
 						proc.on('close', (code) => {
 							if (code === 0) {
-								resolve({ success: true, wasDownloading: downloadDetected });
+								resolve({ success: true, wasDownloading: downloadDetected, output: stdout + stderr });
 							} else {
 								resolve({
 									success: false,
 									error: stderr || stdout || 'Failed to launch instance',
-									wasDownloading: downloadDetected
+									wasDownloading: downloadDetected,
+									output: stdout + stderr
 								});
 							}
 						});
@@ -117,13 +130,15 @@ export async function launchInstance(
 							resolve({
 								success: false,
 								error: err.message,
-								wasDownloading: downloadDetected
+								wasDownloading: downloadDetected,
+								output: stdout + stderr
 							});
 						});
 					});
 
 					if (result.success) {
-						return { success: true, instanceName, wasDownloading: result.wasDownloading };
+						const launchedName = instanceName || parseLaunchedInstanceName(result.output);
+						return { success: true, instanceName: launchedName, wasDownloading: result.wasDownloading };
 					} else {
 						lastError = new Error(result.error);
 						continue;
@@ -131,8 +146,9 @@ export async function launchInstance(
 				} else {
 					// Fallback when no progress callback — execFile with arg array
 					// avoids shell quoting/space issues that break exec on paths with spaces.
-					await execFileAsync(multipassPath, args);
-					return { success: true, instanceName, wasDownloading: false };
+					const { stdout, stderr } = await execFileAsync(multipassPath, args);
+					const launchedName = instanceName || parseLaunchedInstanceName(stdout + stderr);
+					return { success: true, instanceName: launchedName, wasDownloading: false };
 				}
 			} catch (err) {
 				lastError = err;

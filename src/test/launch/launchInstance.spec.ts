@@ -1,9 +1,14 @@
-import { buildLaunchArgs } from '../../commands/launch/launchInstance';
+import { buildLaunchArgs, parseLaunchedInstanceName } from '../../commands/launch/launchInstance';
 
 describe('buildLaunchArgs', () => {
 	test('builds minimal args with just instance name', () => {
 		const args = buildLaunchArgs({}, 'my-vm');
 		expect(args).toEqual(['launch', '--name', 'my-vm']);
+	});
+
+	test('omits name arg when no instance name is provided', () => {
+		const args = buildLaunchArgs({});
+		expect(args).toEqual(['launch']);
 	});
 
 	test('includes image before --name', () => {
@@ -34,5 +39,15 @@ describe('buildLaunchArgs', () => {
 			'--cpus', '2', '--memory', '4G', '--disk', '10G',
 			'--cloud-init', '/tmp/ci.yaml',
 		]);
+	});
+});
+
+describe('parseLaunchedInstanceName', () => {
+	test('extracts the generated Multipass name from launch output', () => {
+		expect(parseLaunchedInstanceName('Launched: careful-wallaby\n')).toBe('careful-wallaby');
+	});
+
+	test('returns undefined when output does not contain a launch name', () => {
+		expect(parseLaunchedInstanceName('Creating instance...')).toBeUndefined();
 	});
 });
