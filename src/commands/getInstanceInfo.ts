@@ -4,6 +4,11 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+export interface MountEntry {
+	source: string;
+	target: string;
+}
+
 export interface MultipassInstanceInfo {
 	name: string;
 	state: string;
@@ -11,11 +16,13 @@ export interface MultipassInstanceInfo {
 	snapshots: number;
 	ipv4: string;
 	release: string;
+	imageRelease: string;
 	cpus: string;
 	load: string;
 	diskUsage: string;
 	memoryUsage: string;
 	mounts: string;
+	mountsList: MountEntry[];
 }
 
 // Helper function to format bytes to GB
@@ -71,6 +78,14 @@ export async function getInstanceInfo(instanceName: string): Promise<MultipassIn
 		// Format zone
 		const zone = info.zone?.name || 'N/A';
 
+		// Mounts: JSON key is the in-instance target path; value.source_path is the host source.
+		const mountsList: MountEntry[] = info.mounts && typeof info.mounts === 'object'
+			? Object.entries(info.mounts).map(([target, value]: [string, any]) => ({
+				source: value?.source_path || '',
+				target
+			}))
+			: [];
+
 		return {
 			name: instanceName,
 			state: info.state || 'Unknown',
@@ -78,15 +93,15 @@ export async function getInstanceInfo(instanceName: string): Promise<MultipassIn
 			snapshots: parseInt(info.snapshot_count) || 0,
 			ipv4: info.ipv4?.[0] || '',
 			release: info.release || 'N/A',
+			imageRelease: info.image_release || '',
 			cpus: info.cpu_count || 'N/A',
 			load: info.load ? info.load.join(' ') : 'N/A',
 			diskUsage: diskUsage,
 			memoryUsage: memoryUsage,
-			mounts: info.mounts && Object.keys(info.mounts).length > 0
-				? Object.entries(info.mounts).map(([source, target]: [string, any]) =>
-					`${source} => ${target.target_path || target}`
-				).join(', ')
-				: '--'
+			mounts: mountsList.length > 0
+				? mountsList.map((m) => `${m.source} => ${m.target}`).join(', ')
+				: '--',
+			mountsList
 		};
 	} catch (error) {
 		console.error('Error fetching instance info:', error);

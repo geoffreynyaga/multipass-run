@@ -600,6 +600,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 									) : instanceInfo ? (
 										<InstanceDetails
 											info={instanceInfo}
+											currentState={instance.state}
 											onDelete={onDeleteInstance}
 											onStart={onStartInstance}
 											onStop={onStopInstance}
