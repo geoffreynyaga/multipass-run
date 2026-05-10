@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 
-import { exec, execFile } from 'child_process';
+import { exec, execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 
 import { MULTIPASS_PATHS } from './constants';
 import { promisify } from 'util';
@@ -119,4 +119,15 @@ export async function runMultipassCommand(args: readonly string[]): Promise<{ st
 	return execFileAsync('script', ['-q', '-c', buildScriptCommand(multipassPath, args), '/dev/null'], {
 		env,
 	});
+}
+
+export async function spawnMultipassCommand(args: readonly string[]): Promise<ChildProcessWithoutNullStreams> {
+	const multipassPath = await findMultipassExecutable();
+	const env = getSnapCleanEnv();
+
+	if (isSnapMultipassPath(multipassPath)) {
+		return spawn('script', ['-q', '-c', buildScriptCommand(multipassPath, args), '/dev/null'], { env });
+	}
+
+	return spawn(multipassPath, [...args], { env });
 }

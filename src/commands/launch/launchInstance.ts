@@ -1,11 +1,6 @@
 import * as vscode from 'vscode';
 
-import { execFile, spawn } from 'child_process';
-
-import { MULTIPASS_PATHS } from '../../utils/constants';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { runMultipassCommand, spawnMultipassCommand } from '../../utils/multipassExecutable';
 
 export interface LaunchInstanceOptions {
 	name?: string;
@@ -72,17 +67,16 @@ export async function launchInstance(
 
 		let wasDownloading = false;
 
-		for (const multipassPath of MULTIPASS_PATHS) {
-			try {
-				// If we have a progress callback, use spawn to monitor output
-				if (options.onProgress) {
-					const result = await new Promise<{
-						success: boolean;
-						error?: string;
-						wasDownloading: boolean;
-						output: string;
-					}>((resolve) => {
-						const proc = spawn(multipassPath, args);
+		try {
+			// If we have a progress callback, use spawn to monitor output
+			if (options.onProgress) {
+				const result = await new Promise<{
+					success: boolean;
+					error?: string;
+					wasDownloading: boolean;
+					output: string;
+				}>((resolve) => {
+					void spawnMultipassCommand(args).then((proc) => {
 
 						let stdout = '';
 						let stderr = '';
@@ -134,26 +128,29 @@ export async function launchInstance(
 								output: stdout + stderr
 							});
 						});
+					}).catch((err: Error) => {
+						resolve({
+							success: false,
+							error: err.message,
+							wasDownloading: false,
+							output: '',
+						});
 					});
+				});
 
-					if (result.success) {
-						const launchedName = instanceName || parseLaunchedInstanceName(result.output);
-						return { success: true, instanceName: launchedName, wasDownloading: result.wasDownloading };
-					} else {
-						lastError = new Error(result.error);
-						continue;
-					}
-				} else {
-					// Fallback when no progress callback — execFile with arg array
-					// avoids shell quoting/space issues that break exec on paths with spaces.
-					const { stdout, stderr } = await execFileAsync(multipassPath, args);
-					const launchedName = instanceName || parseLaunchedInstanceName(stdout + stderr);
-					return { success: true, instanceName: launchedName, wasDownloading: false };
+				if (result.success) {
+					const launchedName = instanceName || parseLaunchedInstanceName(result.output);
+					return { success: true, instanceName: launchedName, wasDownloading: result.wasDownloading };
 				}
-			} catch (err) {
-				lastError = err;
-				continue;
+
+				lastError = new Error(result.error);
+			} else {
+				const { stdout, stderr } = await runMultipassCommand(args);
+				const launchedName = instanceName || parseLaunchedInstanceName(stdout + stderr);
+				return { success: true, instanceName: launchedName, wasDownloading: false };
 			}
+		} catch (err) {
+			lastError = err;
 		}
 
 		return {

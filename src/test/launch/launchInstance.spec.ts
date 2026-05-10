@@ -1,4 +1,20 @@
+jest.mock('../../utils/multipassExecutable', () => ({
+	runMultipassCommand: jest.fn(),
+	spawnMultipassCommand: jest.fn(),
+}));
+
 import { buildLaunchArgs, parseLaunchedInstanceName } from '../../commands/launch/launchInstance';
+import { runMultipassCommand, spawnMultipassCommand } from '../../utils/multipassExecutable';
+
+import { PassThrough } from 'stream';
+
+const runMultipassCommandMock = runMultipassCommand as jest.MockedFunction<typeof runMultipassCommand>;
+const spawnMultipassCommandMock = spawnMultipassCommand as jest.MockedFunction<typeof spawnMultipassCommand>;
+
+beforeEach(() => {
+	runMultipassCommandMock.mockReset();
+	spawnMultipassCommandMock.mockReset();
+});
 
 describe('buildLaunchArgs', () => {
 	test('builds minimal args with just instance name', () => {
@@ -49,5 +65,57 @@ describe('parseLaunchedInstanceName', () => {
 
 	test('returns undefined when output does not contain a launch name', () => {
 		expect(parseLaunchedInstanceName('Creating instance...')).toBeUndefined();
+	});
+});
+
+describe('launchInstance', () => {
+	test('uses the shared multipass runner when no progress callback is provided', async () => {
+		runMultipassCommandMock.mockResolvedValue({
+			stdout: 'Launched: careful-wallaby\n',
+			stderr: '',
+		});
+
+		const { launchInstance } = await import('../../commands/launch/launchInstance');
+		const result = await launchInstance();
+
+		expect(runMultipassCommandMock).toHaveBeenCalledWith(['launch']);
+		expect(result).toEqual({
+			success: true,
+			instanceName: 'careful-wallaby',
+			wasDownloading: false,
+		});
+	});
+
+	test('uses the shared spawn helper when a progress callback is provided', async () => {
+		const stdout = new PassThrough();
+		const stderr = new PassThrough();
+		const listeners = new Map<string, (arg: any) => void>();
+		const proc = {
+			stdout,
+			stderr,
+			on: jest.fn((event: string, handler: (arg: any) => void) => {
+				listeners.set(event, handler);
+				return proc;
+			}),
+		} as any;
+
+		spawnMultipassCommandMock.mockResolvedValue(proc);
+
+		const { launchInstance } = await import('../../commands/launch/launchInstance');
+		const progress = jest.fn();
+		const promise = launchInstance({ onProgress: progress });
+
+		await Promise.resolve();
+		stdout.write('Retrieving image: 42%\n');
+		stdout.write('Launched: careful-wallaby\n');
+		listeners.get('close')?.(0);
+
+		await expect(promise).resolves.toEqual({
+			success: true,
+			instanceName: 'careful-wallaby',
+			wasDownloading: true,
+		});
+		expect(spawnMultipassCommandMock).toHaveBeenCalledWith(['launch']);
+		expect(progress).toHaveBeenCalledWith('Retrieving image: 42%', true);
 	});
 });

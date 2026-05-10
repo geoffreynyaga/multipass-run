@@ -1,8 +1,4 @@
-import { MULTIPASS_PATHS } from '../utils/constants';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { runMultipassCommand } from '../utils/multipassExecutable';
 
 export interface MountEntry {
 	source: string;
@@ -36,15 +32,11 @@ export async function getInstanceInfo(instanceName: string): Promise<MultipassIn
 		let stdout = '';
 		let lastError: any = null;
 
-		for (const multipassPath of MULTIPASS_PATHS) {
-			try {
-				const result = await execAsync(`${multipassPath} info ${instanceName} --format json`);
-				stdout = result.stdout;
-				break;
-			} catch (err) {
-				lastError = err;
-				continue;
-			}
+		try {
+			const result = await runMultipassCommand(['info', instanceName, '--format', 'json']);
+			stdout = result.stdout;
+		} catch (err) {
+			lastError = err;
 		}
 
 		if (!stdout) {
