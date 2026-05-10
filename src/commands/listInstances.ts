@@ -1,8 +1,4 @@
-import { MULTIPASS_PATHS } from '../utils/constants';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { runMultipassCommand } from '../utils/multipassExecutable';
 
 export interface MultipassInstance {
 	name: string;
@@ -30,15 +26,11 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 		let stdout = '';
 		let lastError: any = null;
 
-		for (const multipassPath of MULTIPASS_PATHS) {
-			try {
-				const result = await execAsync(`${multipassPath} list --format json`);
-				stdout = result.stdout;
-				break;
-			} catch (err) {
-				lastError = err;
-				continue;
-			}
+		try {
+			const result = await runMultipassCommand(['list', '--format', 'json']);
+			stdout = result.stdout;
+		} catch (err) {
+			lastError = err;
 		}
 
 		if (!stdout) {
@@ -64,7 +56,8 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 			// Check if multipass is not installed by looking for "command not found" in the error
 			const isNotInstalled = errorMessage.includes('command not found') || 
 							  errorMessage.includes('not found') ||
-							  errorMessage.includes('No such file or directory');
+							  errorMessage.includes('No such file or directory') ||
+							  errorMessage.includes('ENOENT');
 			
 			if (isNotInstalled) {
 				console.error('Multipass is not installed');

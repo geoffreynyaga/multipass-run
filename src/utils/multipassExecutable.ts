@@ -1,10 +1,26 @@
 import * as fs from 'fs';
 
+import { exec, execFile } from 'child_process';
+
 import { MULTIPASS_PATHS } from './constants';
-import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/**
+ * Removes SNAP-related variables inherited from a snapped VS Code process.
+ * Multipass needs its own snap context rather than the editor's.
+ */
+export function getSnapCleanEnv(): NodeJS.ProcessEnv {
+	const env: NodeJS.ProcessEnv = { ...process.env };
+	for (const key of Object.keys(env)) {
+		if (key.startsWith('SNAP')) {
+			delete env[key];
+		}
+	}
+	return env;
+}
 
 let cachedPath: string | null = null;
 
@@ -60,7 +76,7 @@ export async function findMultipassExecutable(): Promise<string> {
 		`/bin/sh -c 'command -v multipass'`,
 	]) {
 		try {
-			const { stdout } = await execAsync(shellCmd);
+			const { stdout } = await execAsync(shellCmd, { env: getSnapCleanEnv() });
 			const trimmed = stdout.trim().split('\n')[0];
 			if (trimmed && fs.existsSync(trimmed)) {
 				cachedPath = trimmed;
@@ -77,4 +93,30 @@ export async function findMultipassExecutable(): Promise<string> {
 
 export function resetMultipassExecutableCache(): void {
 	cachedPath = null;
+}
+
+function isSnapMultipassPath(executablePath: string): boolean {
+	return process.platform === 'linux' && executablePath === '/snap/bin/multipass';
+}
+
+function shellEscape(arg: string): string {
+	return `'${arg.replace(/'/g, `'"'"'`)}'`;
+}
+
+function buildScriptCommand(executablePath: string, args: readonly string[]): string {
+	return [executablePath, ...args].map(shellEscape).join(' ');
+}
+
+export async function runMultipassCommand(args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
+	const multipassPath = await findMultipassExecutable();
+	const env = getSnapCleanEnv();
+	const directResult = await execFileAsync(multipassPath, [...args], { env });
+
+	if (directResult.stdout || !isSnapMultipassPath(multipassPath)) {
+		return directResult;
+	}
+
+	return execFileAsync('script', ['-q', '-c', buildScriptCommand(multipassPath, args), '/dev/null'], {
+		env,
+	});
 }
