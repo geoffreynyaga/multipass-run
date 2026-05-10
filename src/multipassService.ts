@@ -21,10 +21,15 @@ import { setupSSH as setupSSHCommand } from './utils/setupSSH';
 import { startInstance as startInstanceCommand } from './commands/startInstance';
 import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
 import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
+import { listSnapshots as listSnapshotsCommand } from './commands/listSnapshots';
+import { takeSnapshot as takeSnapshotCommand } from './commands/takeSnapshot';
+import { restoreSnapshot as restoreSnapshotCommand } from './commands/restoreSnapshot';
+import { deleteSnapshot as deleteSnapshotCommand } from './commands/deleteSnapshot';
 
 // Re-export types consumed by the webview
 export type { InstanceLists } from './commands/listInstances';
 export type { MultipassInstanceInfo } from './commands/getInstanceInfo';
+export type { MultipassSnapshot } from './commands/listSnapshots';
 
 // Re-export functions consumed directly (not via MultipassService)
 export { createDefaultInstance } from './commands/launch/createDefaultInstance';
@@ -41,6 +46,10 @@ export class MultipassService {
 	public static deleteInstance = deleteInstanceCommand;
 	public static recoverInstance = recoverInstanceCommand;
 	public static suspendInstance = suspendInstanceCommand;
+	public static listSnapshots = listSnapshotsCommand;
+	public static takeSnapshot = takeSnapshotCommand;
+	public static restoreSnapshot = restoreSnapshotCommand;
+	public static deleteSnapshot = deleteSnapshotCommand;
 	public static findImages = findImagesCommand;
 	public static setupSSHForInstance = setupSSHForInstanceCommand;
 	public static removeSSHConfigForInstance = removeSSHConfigForInstanceCommand;

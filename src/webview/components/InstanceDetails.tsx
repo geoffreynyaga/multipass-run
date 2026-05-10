@@ -1,11 +1,12 @@
 import { getMonoFont } from '../utils/fontUtils';
 
-import { MultipassInstanceInfo } from '../../multipassService';
+import { MultipassInstanceInfo, MultipassSnapshot } from '../../multipassService';
 import React from 'react';
 
 interface InstanceDetailsProps {
 	info: MultipassInstanceInfo;
 	currentState?: string;
+	snapshots: MultipassSnapshot[];
 	onDelete: (name: string) => void;
 	onStart: (name: string) => void;
 	onStop: (name: string) => void;
@@ -14,6 +15,50 @@ interface InstanceDetailsProps {
 	onSetupSSH: (name: string) => void;
 	onRecover: (name: string) => void;
 	onPurge: (name: string) => void;
+	onTakeSnapshot: (name: string, snapshotName?: string, comment?: string) => void;
+	onRestoreSnapshot: (name: string, snapshotName: string) => void;
+	onDeleteSnapshot: (name: string, snapshotName: string) => void;
+}
+
+const MONTHS: Record<string, number> = {
+	Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+	Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+};
+
+function parseMultipassDate(created: string): Date | null {
+	if (!created) return null;
+	// First try native parse — covers ISO and some locale strings.
+	const native = new Date(created);
+	if (!isNaN(native.getTime())) return native;
+	// Multipass format: "Sun May 10 16:18:11 2026 CEST"
+	const m = created.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(\d{4})/);
+	if (!m) return null;
+	const month = MONTHS[m[1]];
+	if (month === undefined) return null;
+	return new Date(
+		parseInt(m[6], 10),
+		month,
+		parseInt(m[2], 10),
+		parseInt(m[3], 10),
+		parseInt(m[4], 10),
+		parseInt(m[5], 10)
+	);
+}
+
+function formatRelativeTime(created: string): string {
+	const date = parseMultipassDate(created);
+	if (!date) return created;
+	const diffMs = Date.now() - date.getTime();
+	const min = Math.floor(diffMs / 60000);
+	if (min < 1) return 'just now';
+	if (min < 60) return `${min}m ago`;
+	const hr = Math.floor(min / 60);
+	if (hr < 24) return `${hr}h ago`;
+	const day = Math.floor(hr / 24);
+	if (day < 30) return `${day}d ago`;
+	const mo = Math.floor(day / 30);
+	if (mo < 12) return `${mo}mo ago`;
+	return `${Math.floor(mo / 12)}y ago`;
 }
 
 type PendingAction = 'starting' | 'stopping' | 'suspending' | null;
@@ -198,9 +243,235 @@ const GhostIconBtn: React.FC<{
 	);
 };
 
+interface SnapshotSectionProps {
+	instanceName: string;
+	snapshots: MultipassSnapshot[];
+	canTake: boolean;
+	canRestore: boolean;
+	onTake: (name: string, snapshotName?: string, comment?: string) => void;
+	onRestore: (name: string, snapshotName: string) => void;
+	onDelete: (name: string, snapshotName: string) => void;
+	monoFont: string;
+}
+
+const SnapshotSection: React.FC<SnapshotSectionProps> = ({
+	instanceName,
+	snapshots,
+	canTake,
+	canRestore,
+	onTake,
+	onRestore,
+	onDelete,
+	monoFont
+}) => {
+	const [showForm, setShowForm] = React.useState(false);
+	const [snapName, setSnapName] = React.useState('');
+	const [snapComment, setSnapComment] = React.useState('');
+
+	const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+	const submit = (e: React.MouseEvent | React.FormEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		onTake(instanceName, snapName.trim() || undefined, snapComment.trim() || undefined);
+		setSnapName('');
+		setSnapComment('');
+		setShowForm(false);
+	};
+
+	const inputStyle: React.CSSProperties = {
+		background: 'var(--vscode-input-background)',
+		color: 'var(--vscode-input-foreground)',
+		border: '1px solid var(--vscode-input-border, rgba(127,127,127,0.35))',
+		borderRadius: 3,
+		padding: '5px 8px',
+		fontSize: 11,
+		fontFamily: UI_FONT,
+		width: '100%',
+		boxSizing: 'border-box'
+	};
+
+	return (
+		<div style={{ padding: '10px 14px' }}>
+			<SectionHeader
+				label="Snapshots"
+				count={snapshots.length}
+				action={
+					canTake ? (
+						<GhostIconBtn
+							title={showForm ? 'Cancel' : 'Take snapshot'}
+							onClick={(e) => { stop(e); setShowForm((v) => !v); }}
+						>
+							{showForm ? <span style={{ fontSize: 14, lineHeight: 1 }}>×</span> : <CamIcon />}
+						</GhostIconBtn>
+					) : (
+						<span style={{ fontSize: 10, color: DIM, opacity: 0.7, fontFamily: UI_FONT }} title="Stop the instance to take a snapshot">
+							stop instance to snapshot
+						</span>
+					)
+				}
+			/>
+
+			{showForm && canTake && (
+				<form onSubmit={submit} onClick={stop} style={{
+					display: 'flex',
+					flexDirection: 'column',
+					gap: 6,
+					padding: '8px 0 10px',
+					borderBottom: '1px solid rgba(127,127,127,0.18)',
+					marginBottom: 8
+				}}>
+					<input
+						type="text"
+						value={snapName}
+						onChange={(e) => setSnapName(e.target.value)}
+						placeholder="Name (optional)"
+						style={inputStyle}
+						autoFocus
+					/>
+					<input
+						type="text"
+						value={snapComment}
+						onChange={(e) => setSnapComment(e.target.value)}
+						placeholder="Comment (optional)"
+						style={inputStyle}
+					/>
+					<div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+						<button
+							type="button"
+							onClick={(e) => { stop(e); setShowForm(false); setSnapName(''); setSnapComment(''); }}
+							style={{
+								background: 'transparent',
+								border: '1px solid rgba(127,127,127,0.35)',
+								color: FG,
+								borderRadius: 3,
+								padding: '5px 10px',
+								fontSize: 11,
+								fontFamily: UI_FONT,
+								cursor: 'pointer'
+							}}
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							style={{
+								background: '#E95420',
+								border: '1px solid #E95420',
+								color: '#fff',
+								borderRadius: 3,
+								padding: '5px 10px',
+								fontSize: 11,
+								fontFamily: UI_FONT,
+								fontWeight: 500,
+								cursor: 'pointer'
+							}}
+						>
+							Take snapshot
+						</button>
+					</div>
+				</form>
+			)}
+
+			{snapshots.length === 0 ? (
+				<div style={{ fontSize: 11, color: DIM, fontFamily: UI_FONT, opacity: 0.7 }}>
+					No snapshots
+				</div>
+			) : (
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+					{snapshots.map((s) => {
+						const meta: React.ReactNode[] = [];
+						const rel = formatRelativeTime(s.created);
+						if (rel) meta.push(<span key="time">{rel}</span>);
+						if (s.comment) meta.push(<span key="comment">{s.comment}</span>);
+						if (s.parent) meta.push(
+							<span key="parent">
+								parent <span style={{ fontFamily: monoFont }}>{s.parent}</span>
+							</span>
+						);
+						return (
+							<div key={s.name} style={{
+								display: 'flex',
+								flexDirection: 'column',
+								gap: 6,
+								minWidth: 0
+							}}>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+									<span style={{
+										flex: 1,
+										minWidth: 0,
+										fontFamily: monoFont,
+										fontSize: 12,
+										color: FG,
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap'
+									}} title={s.name}>{s.name}</span>
+									<button
+										type="button"
+										title={canRestore ? `Restore ${s.name}` : 'Stop instance to restore'}
+										disabled={!canRestore}
+										onClick={(e) => { stop(e); onRestore(instanceName, s.name); }}
+										style={{
+											background: 'transparent',
+											border: 'none',
+											color: canRestore ? FG : DIM,
+											cursor: canRestore ? 'pointer' : 'not-allowed',
+											fontSize: 11,
+											fontFamily: UI_FONT,
+											padding: '2px 6px',
+											opacity: canRestore ? 1 : 0.5,
+											flex: 'none'
+										}}
+									>Restore</button>
+									<button
+										type="button"
+										title={`Delete ${s.name}`}
+										onClick={(e) => { stop(e); onDelete(instanceName, s.name); }}
+										style={{
+											background: 'transparent',
+											border: 'none',
+											color: DANGER,
+											cursor: 'pointer',
+											fontSize: 11,
+											fontFamily: UI_FONT,
+											padding: '2px 6px',
+											flex: 'none'
+										}}
+									>Delete</button>
+								</div>
+								{meta.length > 0 && (
+									<div style={{
+										fontSize: 10.5,
+										color: DIM,
+										fontFamily: UI_FONT,
+										opacity: 0.85,
+										display: 'flex',
+										gap: 6,
+										flexWrap: 'wrap',
+										lineHeight: 1.4
+									}}>
+										{meta.map((node, i) => (
+											<React.Fragment key={i}>
+												{i > 0 && <span style={{ opacity: 0.5 }}>·</span>}
+												{node}
+											</React.Fragment>
+										))}
+									</div>
+								)}
+							</div>
+						);
+					})}
+				</div>
+			)}
+		</div>
+	);
+};
+
 export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 	info,
 	currentState,
+	snapshots,
 	onDelete,
 	onStart,
 	onStop,
@@ -208,7 +479,10 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 	onShell,
 	onSetupSSH,
 	onRecover,
-	onPurge
+	onPurge,
+	onTakeSnapshot,
+	onRestoreSnapshot,
+	onDeleteSnapshot
 }) => {
 	const monoFont = getMonoFont();
 	const [pending, setPending] = React.useState<PendingAction>(null);
@@ -388,23 +662,21 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 				)}
 			</div>
 
-			<Divider />
-
-			{/* Snapshots */}
-			<div style={{ padding: '10px 14px' }}>
-				<SectionHeader
-					label="Snapshots"
-					count={info.snapshots}
-					action={
-						<GhostIconBtn title="Take snapshot" onClick={stop}>
-							<CamIcon />
-						</GhostIconBtn>
-					}
-				/>
-				<div style={{ fontSize: 11, color: DIM, fontFamily: UI_FONT, opacity: 0.7 }}>
-					{info.snapshots === 0 ? 'No snapshots' : `${info.snapshots} snapshot${info.snapshots === 1 ? '' : 's'}`}
-				</div>
-			</div>
+			{!isDeleted && (
+				<>
+					<Divider />
+					<SnapshotSection
+						instanceName={info.name}
+						snapshots={snapshots}
+						canTake={isStopped}
+						canRestore={isStopped}
+						onTake={onTakeSnapshot}
+						onRestore={onRestoreSnapshot}
+						onDelete={onDeleteSnapshot}
+						monoFont={monoFont}
+					/>
+				</>
+			)}
 
 			<Divider />
 

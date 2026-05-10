@@ -283,6 +283,113 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						info: info
 					});
 				}
+			} else if (message.command === 'getSnapshots') {
+				const snapshots = await MultipassService.listSnapshots(message.instanceName);
+				if (this._view) {
+					this._view.webview.postMessage({
+						command: 'snapshots',
+						instanceName: message.instanceName,
+						snapshots
+					});
+				}
+			} else if (message.command === 'takeSnapshot') {
+				const result = await MultipassService.takeSnapshot(message.instanceName, {
+					name: message.name,
+					comment: message.comment
+				});
+				if (result.success) {
+					vscode.window.showInformationMessage(
+						`Snapshot '${result.snapshotName || 'created'}' for '${message.instanceName}'`
+					);
+					const snapshots = await MultipassService.listSnapshots(message.instanceName);
+					this._view?.webview.postMessage({
+						command: 'snapshots',
+						instanceName: message.instanceName,
+						snapshots
+					});
+				} else {
+					vscode.window.showErrorMessage(`Failed to take snapshot: ${result.error}`);
+				}
+				this._view?.webview.postMessage({
+					command: 'snapshotActionResult',
+					instanceName: message.instanceName,
+					action: 'take',
+					success: result.success,
+					error: result.error
+				});
+			} else if (message.command === 'restoreSnapshot') {
+				const confirmed = await vscode.window.showWarningMessage(
+					`Restore '${message.instanceName}' to snapshot '${message.snapshotName}'? This discards the instance's current state.`,
+					{ modal: true },
+					'Restore'
+				);
+				if (confirmed !== 'Restore') {
+					this._view?.webview.postMessage({
+						command: 'snapshotActionResult',
+						instanceName: message.instanceName,
+						snapshotName: message.snapshotName,
+						action: 'restore',
+						success: false,
+						cancelled: true
+					});
+					return;
+				}
+				const result = await MultipassService.restoreSnapshot(message.instanceName, message.snapshotName);
+				if (result.success) {
+					vscode.window.showInformationMessage(
+						`Restored '${message.instanceName}' to '${message.snapshotName}'`
+					);
+					await this.refresh();
+				} else {
+					vscode.window.showErrorMessage(`Failed to restore snapshot: ${result.error}`);
+				}
+				this._view?.webview.postMessage({
+					command: 'snapshotActionResult',
+					instanceName: message.instanceName,
+					snapshotName: message.snapshotName,
+					action: 'restore',
+					success: result.success,
+					error: result.error
+				});
+			} else if (message.command === 'deleteSnapshot') {
+				const confirmed = await vscode.window.showWarningMessage(
+					`Delete snapshot '${message.snapshotName}' of '${message.instanceName}'? This cannot be undone.`,
+					{ modal: true },
+					'Delete'
+				);
+				if (confirmed !== 'Delete') {
+					this._view?.webview.postMessage({
+						command: 'snapshotActionResult',
+						instanceName: message.instanceName,
+						snapshotName: message.snapshotName,
+						action: 'delete',
+						success: false,
+						cancelled: true
+					});
+					return;
+				}
+				const result = await MultipassService.deleteSnapshot(message.instanceName, message.snapshotName);
+				if (result.success) {
+					vscode.window.showInformationMessage(
+						`Snapshot '${message.snapshotName}' deleted`
+					);
+					const snapshots = await MultipassService.listSnapshots(message.instanceName);
+					this._view?.webview.postMessage({
+						command: 'snapshots',
+						instanceName: message.instanceName,
+						snapshots
+					});
+				} else {
+					vscode.window.showErrorMessage(`Failed to delete snapshot: ${result.error}`);
+				}
+				this._view?.webview.postMessage({
+					command: 'snapshotActionResult',
+					instanceName: message.instanceName,
+					snapshotName: message.snapshotName,
+					action: 'delete',
+					success: result.success,
+					error: result.error
+				});
 			} else if (message.command === 'stopInstance') {
 				// Show stopping state immediately by updating the instance in the list
 				const currentLists = await MultipassService.getInstanceLists();

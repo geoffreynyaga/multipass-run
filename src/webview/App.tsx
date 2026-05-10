@@ -1,4 +1,4 @@
-import { InstanceLists, MultipassInstanceInfo } from '../multipassService';
+import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
 import React, { useEffect, useState } from 'react';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { MultipassCapabilities } from '../utils/multipassVersion';
@@ -43,6 +43,7 @@ const App: React.FC = () => {
 		window.initialState || { active: [], deleted: [] }
 	);
 	const [instanceInfo, setInstanceInfo] = useState<MultipassInstanceInfo | null>(null);
+	const [snapshotsByInstance, setSnapshotsByInstance] = useState<Record<string, MultipassSnapshot[]>>({});
 	const [multipassCapabilities, setMultipassCapabilities] = useState<MultipassCapabilities>(
 		window.multipassCapabilities || { supportsAlternativeDistros: false }
 	);
@@ -78,6 +79,12 @@ const App: React.FC = () => {
 					setInlineImageOptions([]);
 					setIsLoadingInlineImages(false);
 					break;
+				case 'snapshots':
+					setSnapshotsByInstance((prev) => ({
+						...prev,
+						[message.instanceName]: message.snapshots || []
+					}));
+					break;
 			}
 		};
 
@@ -108,6 +115,13 @@ const App: React.FC = () => {
 	const handleRecoverInstance = (name: string) => post('recoverInstance', { instanceName: name });
 	const handlePurgeInstance = (name: string) => post('purgeInstance', { instanceName: name });
 	const handleGetInstanceInfo = (name: string) => post('getInstanceInfo', { instanceName: name });
+	const handleGetSnapshots = (name: string) => post('getSnapshots', { instanceName: name });
+	const handleTakeSnapshot = (name: string, snapshotName?: string, comment?: string) =>
+		post('takeSnapshot', { instanceName: name, name: snapshotName, comment });
+	const handleRestoreSnapshot = (name: string, snapshotName: string) =>
+		post('restoreSnapshot', { instanceName: name, snapshotName });
+	const handleDeleteSnapshot = (name: string, snapshotName: string) =>
+		post('deleteSnapshot', { instanceName: name, snapshotName });
 	const handleRefreshList = () => post('refreshList');
 	const handleClearPendingLaunch = (name: string) => post('clearPendingLaunch', { instanceName: name });
 	const handleDownloadMultipass = () => post('downloadMultipass');
@@ -138,6 +152,11 @@ const App: React.FC = () => {
 		<InstanceList
 			instanceLists={instanceLists}
 			instanceInfo={instanceInfo}
+			snapshotsByInstance={snapshotsByInstance}
+			onGetSnapshots={handleGetSnapshots}
+			onTakeSnapshot={handleTakeSnapshot}
+			onRestoreSnapshot={handleRestoreSnapshot}
+			onDeleteSnapshot={handleDeleteSnapshot}
 			ubuntuIconUri={window.ubuntuIconUri || ''}
 			ubuntuDarkIconUri={window.ubuntuDarkIconUri || ''}
 			fedoraIconUri={window.fedoraIconUri || ''}

@@ -1,4 +1,4 @@
-import { InstanceLists, MultipassInstanceInfo } from '../../multipassService';
+import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../../multipassService';
 import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
 import { EmptyInstanceState } from './InstanceList/EmptyInstanceState';
@@ -42,6 +42,11 @@ interface InstanceListProps {
 	onGetInstanceInfo: (name: string) => void;
 	onRefreshList: () => void;
 	onClearPendingLaunch: (name: string) => void;
+	snapshotsByInstance: Record<string, MultipassSnapshot[]>;
+	onGetSnapshots: (name: string) => void;
+	onTakeSnapshot: (name: string, snapshotName?: string, comment?: string) => void;
+	onRestoreSnapshot: (name: string, snapshotName: string) => void;
+	onDeleteSnapshot: (name: string, snapshotName: string) => void;
 }
 
 export const InstanceList: React.FC<InstanceListProps> = ({
@@ -72,7 +77,12 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onPurgeInstance,
 	onGetInstanceInfo,
 	onRefreshList,
-	onClearPendingLaunch
+	onClearPendingLaunch,
+	snapshotsByInstance,
+	onGetSnapshots,
+	onTakeSnapshot,
+	onRestoreSnapshot,
+	onDeleteSnapshot
 }) => {
 	const { active, deleted } = instanceLists;
 	const [optimisticLaunches, setOptimisticLaunches] = React.useState<Array<{ name: string; release: string }>>([]);
@@ -149,6 +159,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const fetchInstanceInfo = (name: string) => {
 		setLoadingInfo(true);
 		onGetInstanceInfo(name);
+		onGetSnapshots(name);
 	};
 
 	// Reset loading state when info is received
@@ -601,6 +612,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 										<InstanceDetails
 											info={instanceInfo}
 											currentState={instance.state}
+											snapshots={snapshotsByInstance[instance.name] || []}
 											onDelete={onDeleteInstance}
 											onStart={onStartInstance}
 											onStop={onStopInstance}
@@ -609,6 +621,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 											onSetupSSH={onSetupSSHInstance}
 											onRecover={onRecoverInstance}
 											onPurge={onPurgeInstance}
+											onTakeSnapshot={onTakeSnapshot}
+											onRestoreSnapshot={onRestoreSnapshot}
+											onDeleteSnapshot={onDeleteSnapshot}
 										/>
 									) : (
 										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-errorForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Failed to load instance details</div>
