@@ -43,6 +43,10 @@ interface InstanceListProps {
 	onRefreshList: () => void;
 	onClearPendingLaunch: (name: string) => void;
 	snapshotsByInstance: Record<string, MultipassSnapshot[]>;
+	hostPlatform: string;
+	onOpenFullDiskAccessSettings: () => void;
+	onAddMount: (name: string) => void;
+	onRemoveMount: (name: string, guestPath: string) => void;
 	onGetSnapshots: (name: string) => void;
 	onTakeSnapshot: (name: string, snapshotName?: string, comment?: string) => void;
 	onRestoreSnapshot: (name: string, snapshotName: string) => void;
@@ -79,6 +83,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onRefreshList,
 	onClearPendingLaunch,
 	snapshotsByInstance,
+	hostPlatform,
+	onOpenFullDiskAccessSettings,
+	onAddMount,
+	onRemoveMount,
 	onGetSnapshots,
 	onTakeSnapshot,
 	onRestoreSnapshot,
@@ -624,6 +632,10 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 											onTakeSnapshot={onTakeSnapshot}
 											onRestoreSnapshot={onRestoreSnapshot}
 											onDeleteSnapshot={onDeleteSnapshot}
+											onAddMount={onAddMount}
+											onRemoveMount={onRemoveMount}
+											hostPlatform={hostPlatform}
+											onOpenFullDiskAccessSettings={onOpenFullDiskAccessSettings}
 										/>
 									) : (
 										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-errorForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Failed to load instance details</div>

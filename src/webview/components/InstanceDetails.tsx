@@ -18,6 +18,10 @@ interface InstanceDetailsProps {
 	onTakeSnapshot: (name: string, snapshotName?: string, comment?: string) => void;
 	onRestoreSnapshot: (name: string, snapshotName: string) => void;
 	onDeleteSnapshot: (name: string, snapshotName: string) => void;
+	onAddMount: (name: string) => void;
+	onRemoveMount: (name: string, guestPath: string) => void;
+	hostPlatform: string;
+	onOpenFullDiskAccessSettings: () => void;
 }
 
 const MONTHS: Record<string, number> = {
@@ -482,7 +486,11 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 	onPurge,
 	onTakeSnapshot,
 	onRestoreSnapshot,
-	onDeleteSnapshot
+	onDeleteSnapshot,
+	onAddMount,
+	onRemoveMount,
+	hostPlatform,
+	onOpenFullDiskAccessSettings
 }) => {
 	const monoFont = getMonoFont();
 	const [pending, setPending] = React.useState<PendingAction>(null);
@@ -632,30 +640,99 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 					label="Mounts"
 					count={mountsList.length}
 					action={
-						<GhostIconBtn title="Add mount" onClick={stop}>
-							<PlusIcon />
-						</GhostIconBtn>
+						!isDeleted && (
+							<GhostIconBtn
+								title="Add mount"
+								onClick={(e) => { stop(e); onAddMount(info.name); }}
+							>
+								<PlusIcon />
+							</GhostIconBtn>
+						)
 					}
 				/>
+				{hostPlatform === 'darwin' && !isDeleted && (
+					<div style={{
+						fontSize: 10.5,
+						color: DIM,
+						fontFamily: UI_FONT,
+						lineHeight: 1.4,
+						marginBottom: 8,
+						padding: '6px 8px',
+						background: 'rgba(127,127,127,0.08)',
+						border: '1px solid rgba(127,127,127,0.18)',
+						borderRadius: 3
+					}}>
+						<span>macOS: empty mount? grant </span>
+						<a
+							href="#"
+							onClick={(e) => { e.preventDefault(); stop(e); onOpenFullDiskAccessSettings(); }}
+							style={{ color: '#E95420', textDecoration: 'none' }}
+						>Full Disk Access</a>
+						<span> to multipassd, then restart daemon and remount.</span>
+					</div>
+				)}
 				{mountsList.length === 0 ? (
 					<div style={{ fontSize: 11, color: DIM, fontFamily: UI_FONT, opacity: 0.7 }}>
 						None mounted
 					</div>
 				) : (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{mountsList.map((m, i) => (
 							<div key={i} style={{
 								display: 'flex',
 								alignItems: 'center',
 								gap: 6,
-								fontSize: 11,
-								fontFamily: monoFont,
-								color: FG,
-								flexWrap: 'wrap'
+								minWidth: 0
 							}}>
-								<span style={{ color: DIM }}>{m.source}</span>
-								<span style={{ color: DIM, display: 'inline-flex' }}><ArrowIcon /></span>
-								<span>{m.target}</span>
+								<div style={{
+									flex: 1,
+									minWidth: 0,
+									display: 'flex',
+									flexDirection: 'column',
+									gap: 2,
+									fontFamily: monoFont,
+									fontSize: 11,
+									color: FG
+								}}>
+									<span style={{
+										color: DIM,
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap'
+									}} title={m.source}>{m.source}</span>
+									<span style={{
+										display: 'flex',
+										alignItems: 'center',
+										gap: 4,
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap'
+									}} title={m.target}>
+										<ArrowIcon />
+										<span style={{
+											overflow: 'hidden',
+											textOverflow: 'ellipsis',
+											whiteSpace: 'nowrap'
+										}}>{m.target}</span>
+									</span>
+								</div>
+								{!isDeleted && (
+									<button
+										type="button"
+										title={`Unmount ${m.target}`}
+										onClick={(e) => { stop(e); onRemoveMount(info.name, m.target); }}
+										style={{
+											background: 'transparent',
+											border: 'none',
+											color: DANGER,
+											cursor: 'pointer',
+											fontSize: 11,
+											fontFamily: UI_FONT,
+											padding: '2px 6px',
+											flex: 'none'
+										}}
+									>Unmount</button>
+								)}
 							</div>
 						))}
 					</div>

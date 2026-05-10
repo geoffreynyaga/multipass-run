@@ -20,6 +20,7 @@ declare global {
 		debianIconUri?: string;
 		debianDarkIconUri?: string;
 		installPlan?: InstallPlan | null;
+		hostPlatform?: string;
 	}
 }
 
@@ -115,6 +116,10 @@ const App: React.FC = () => {
 	const handleRecoverInstance = (name: string) => post('recoverInstance', { instanceName: name });
 	const handlePurgeInstance = (name: string) => post('purgeInstance', { instanceName: name });
 	const handleGetInstanceInfo = (name: string) => post('getInstanceInfo', { instanceName: name });
+	const handleOpenFullDiskAccessSettings = () => post('openFullDiskAccessSettings');
+	const handleAddMount = (name: string) => post('addMount', { instanceName: name });
+	const handleRemoveMount = (name: string, guestPath: string) =>
+		post('removeMount', { instanceName: name, guestPath });
 	const handleGetSnapshots = (name: string) => post('getSnapshots', { instanceName: name });
 	const handleTakeSnapshot = (name: string, snapshotName?: string, comment?: string) =>
 		post('takeSnapshot', { instanceName: name, name: snapshotName, comment });
@@ -153,6 +158,10 @@ const App: React.FC = () => {
 			instanceLists={instanceLists}
 			instanceInfo={instanceInfo}
 			snapshotsByInstance={snapshotsByInstance}
+			hostPlatform={window.hostPlatform || ''}
+			onOpenFullDiskAccessSettings={handleOpenFullDiskAccessSettings}
+			onAddMount={handleAddMount}
+			onRemoveMount={handleRemoveMount}
 			onGetSnapshots={handleGetSnapshots}
 			onTakeSnapshot={handleTakeSnapshot}
 			onRestoreSnapshot={handleRestoreSnapshot}

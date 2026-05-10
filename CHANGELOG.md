@@ -1,5 +1,31 @@
 # Change Log
 
+## [0.0.5] - 2026-05-10
+
+### Added
+- **Snapshots**: take, list, restore, and delete from the sidebar
+  detail panel. Inline form for optional name/comment. Modal
+  confirmation on destructive actions
+- **Mounts**: add a host folder via folder picker and unmount via
+  per-row button. Fixes the previously non-functional `+` button
+- **macOS Full Disk Access hint** under the Mounts section, with a
+  one-click link to System Settings → Privacy & Security → Full Disk
+  Access. Documents the empty-mount symptom in the README
+
+### Changed
+- **Detail view redesign** inspired by `claude-design/screens-detail`:
+  primary action row (Shell / SSH / Stop / Pause), dense KV layout,
+  inline mounts and snapshots, single Delete CTA
+- Detail view now uses the authoritative state from the list rather
+  than potentially stale `multipass info` output, fixing the wrong
+  button set after a Stop or Suspend
+- Optimistic transition pills (Pausing… / Stopping… / Starting…) for
+  instant feedback on action clicks
+- CPU / Memory / Disk / IP / Zone metrics are hidden for non-Running
+  states so suspended instances no longer render `NaN GB`
+- Mount entries now use the correct host source / instance target
+  ordering (multipass JSON keys mounts by target path)
+
 ## [0.0.4] - 2026-05-05
 
 ### Added

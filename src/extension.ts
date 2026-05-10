@@ -13,7 +13,7 @@ import { getMultipassCapabilities } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 import { buildImageOptions, pickImageForDistro, type MultipassDistro } from './utils/multipassImages';
-import { mountFolder } from './commands/mountFolder';
+import { mountFolder, unmountFolder } from './commands/mountFolder';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 
 // Extension utilities
@@ -282,6 +282,72 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 						command: 'instanceInfo',
 						info: info
 					});
+				}
+			} else if (message.command === 'openFullDiskAccessSettings') {
+				if (process.platform === 'darwin') {
+					vscode.env.openExternal(vscode.Uri.parse('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles'));
+				}
+			} else if (message.command === 'addMount') {
+				const folder = await vscode.window.showOpenDialog({
+					canSelectFiles: false,
+					canSelectFolders: true,
+					canSelectMany: false,
+					openLabel: 'Mount in instance',
+					title: `Mount folder into '${message.instanceName}'`
+				});
+				if (!folder || folder.length === 0) {
+					return;
+				}
+				const hostPath = folder[0].fsPath;
+				const baseName = nodePath.basename(hostPath) || 'shared';
+				const defaultGuestPath = `/home/ubuntu/${baseName}`;
+				const guestPath = await vscode.window.showInputBox({
+					title: `Mount target inside '${message.instanceName}'`,
+					prompt: 'Path inside the instance to mount the folder at',
+					value: defaultGuestPath,
+					validateInput: (v) => {
+						if (!v) return 'Path is required';
+						if (!v.startsWith('/')) return 'Path must be absolute (start with /)';
+						return null;
+					}
+				});
+				if (!guestPath) {
+					return;
+				}
+				const result = await mountFolder(message.instanceName, hostPath, guestPath);
+				if (result.success) {
+					vscode.window.showInformationMessage(
+						`Mounted '${hostPath}' into '${message.instanceName}' at ${guestPath}`
+					);
+					const info = await MultipassService.getInstanceInfo(message.instanceName);
+					if (info && this._view) {
+						this._view.webview.postMessage({ command: 'instanceInfo', info });
+					}
+					await this.refresh();
+				} else {
+					vscode.window.showErrorMessage(`Failed to mount: ${result.error}`);
+				}
+			} else if (message.command === 'removeMount') {
+				const confirmed = await vscode.window.showWarningMessage(
+					`Unmount '${message.guestPath}' from '${message.instanceName}'?`,
+					{ modal: true },
+					'Unmount'
+				);
+				if (confirmed !== 'Unmount') {
+					return;
+				}
+				const result = await unmountFolder(message.instanceName, message.guestPath);
+				if (result.success) {
+					vscode.window.showInformationMessage(
+						`Unmounted ${message.guestPath} from '${message.instanceName}'`
+					);
+					const info = await MultipassService.getInstanceInfo(message.instanceName);
+					if (info && this._view) {
+						this._view.webview.postMessage({ command: 'instanceInfo', info });
+					}
+					await this.refresh();
+				} else {
+					vscode.window.showErrorMessage(`Failed to unmount: ${result.error}`);
 				}
 			} else if (message.command === 'getSnapshots') {
 				const snapshots = await MultipassService.listSnapshots(message.instanceName);

@@ -63,6 +63,7 @@ export class WebviewContent {
 				window.debianIconUri = '${debianIconUri}';
 				window.debianDarkIconUri = '${debianDarkIconUri}';
 				window.extensionIconUri = '${extensionIconUri}';
+				window.hostPlatform = '${process.platform}';
 			</script>
 			<script nonce="${nonce}" src="${scriptUri}" onerror="console.error('Failed to load script from: ${scriptUri}')"></script>
 			<script nonce="${nonce}">

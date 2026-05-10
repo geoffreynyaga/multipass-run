@@ -91,6 +91,53 @@ Access detailed system metrics for running instances:
 </details>
 
 <details>
+<summary><b>Mounts</b></summary>
+
+<br>
+
+Share host folders with an instance directly from the sidebar.
+
+- Add a mount with the **+** button next to the Mounts section: pick a
+  host folder, then confirm or edit the in-instance target path
+  (defaults to `/home/ubuntu/<basename>`)
+- Mounted folders appear as `host source → instance target` rows;
+  click **Unmount** on any row to detach
+- Works while the instance is Running or Stopped — Multipass attaches
+  Stopped mounts on next boot
+- Uses **classic** mounts (SSHFS), the Multipass default — universal
+  compatibility across backends
+
+> See the Multipass docs:
+> [Mount](https://multipass.run/docs/mount), [`mount` command](https://multipass.run/docs/mount-command).
+
+</details>
+
+<details>
+<summary><b>Snapshots</b></summary>
+
+<br>
+
+Take, list, restore, and delete instance snapshots from the Snapshots
+section of the detail panel.
+
+- Click the camera icon to take a snapshot — optional name and comment
+  fields. If unnamed, Multipass uses `snapshotN`
+- Each snapshot row shows name, relative time, comment and parent
+- **Restore** rolls the instance back to a snapshot (uses
+  `--destructive`, so the current state is discarded)
+- **Delete** purges a snapshot permanently (snapshots are not
+  recoverable after deletion)
+- Per Multipass: snapshot, restore, and the snapshot UI are only
+  available when the instance is **Stopped**. The UI surfaces a
+  `stop instance to snapshot` hint otherwise
+
+> See the Multipass docs:
+> [`snapshot` command](https://multipass.run/docs/snapshot-command),
+> [`restore` command](https://multipass.run/docs/restore-command).
+
+</details>
+
+<details>
 <summary><b>Instance operations</b></summary>
 
 <br>
@@ -222,6 +269,34 @@ code --install-extension multipass-run-0.0.1.vsix
 3. Select "Purge Instance" (shown in red)
 4. Confirm the action - this operation is irreversible
 
+### How to mount a host folder into an instance
+
+1. Expand the instance in the sidebar
+2. Click the **+** icon next to the Mounts header
+3. Pick a folder on your host in the file dialog
+4. Confirm or edit the target path inside the instance (defaults to
+   `/home/ubuntu/<folder-name>`)
+5. The mount appears in the list. Open a shell into the instance and
+   you can read/write the host folder at the chosen path
+
+### How to unmount a folder
+
+1. Expand the instance
+2. Click **Unmount** next to the mount row
+3. Confirm in the dialog
+
+### How to take, restore, and delete snapshots
+
+Snapshots are only available on **Stopped** instances.
+
+1. Stop the instance from the sidebar (⏹)
+2. Expand it and click the camera icon next to the Snapshots header
+3. (Optional) provide a name and comment, then click **Take snapshot**
+4. To restore: click **Restore** on a snapshot row and confirm. The
+   instance's current state is discarded
+5. To delete: click **Delete** on a snapshot row and confirm. Snapshot
+   deletion is permanent — Multipass does not allow recovery
+
 ### How to launch with cloud-init
 
 1. Save your cloud-init YAML (must start with `#cloud-config`)
@@ -287,6 +362,28 @@ If the extension cannot locate the Multipass CLI:
 2. Ensure the command is in your PATH
 3. Restart VS Code after installing Multipass
 
+### macOS: mounted folder is empty inside the VM
+
+On macOS, classic mounts use Multipass's `sshfs_server` binary. macOS
+TCC (Privacy & Security) silently blocks it from reading user folders
+unless granted Full Disk Access. The mount appears attached but `ls`
+returns nothing inside the VM.
+
+To fix:
+
+1. Open System Settings → Privacy & Security → Full Disk Access
+2. Add and enable both:
+   - `/Library/Application Support/com.canonical.multipass/bin/multipassd`
+   - `/Library/Application Support/com.canonical.multipass/bin/sshfs_server`
+3. Restart the daemon:
+   ```bash
+   sudo launchctl kickstart -k system/com.canonical.multipassd
+   ```
+4. Unmount and remount the folder
+
+The Mounts section in the sidebar links directly to the Full Disk
+Access pane on macOS.
+
 
 
 ## Security
@@ -309,6 +406,14 @@ commands inside guest VMs. Key safeguards:
 - Detailed information is only available for running instances
 
 ## Release notes
+
+### Version 0.0.5
+
+- Detail view redesign: action row (Shell / SSH / Stop / Pause), dense
+  KV layout for live metrics, optimistic transition pills
+- Snapshots: take, list, restore, and delete from the sidebar
+- Mounts: add and unmount host folders from the sidebar
+- macOS Full Disk Access hint with deep-link to the Privacy pane
 
 ### Version 0.0.1
 
