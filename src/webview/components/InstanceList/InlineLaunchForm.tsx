@@ -1,8 +1,7 @@
-import React from 'react';
-
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../../utils/launchDefaults';
 import type { InlineLaunchConfig } from '../../App';
 import type { InlineLaunchFormProps } from './types';
-import { CUSTOM_INSTANCE_DEFAULTS } from '../../../utils/launchDefaults';
+import React from 'react';
 import { getMonoFont } from '../../utils/fontUtils';
 
 export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
@@ -24,10 +23,12 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	const [name, setName] = React.useState('');
 	const [distro, setDistro] = React.useState<InlineLaunchConfig['distro']>('ubuntu');
 	const [selectedImageKey, setSelectedImageKey] = React.useState('');
+	const [isImagePickerExpanded, setIsImagePickerExpanded] = React.useState(false);
 	const [cpus, setCpus] = React.useState(CUSTOM_INSTANCE_DEFAULTS.cpus);
 	const [memory, setMemory] = React.useState(CUSTOM_INSTANCE_DEFAULTS.memoryGb);
 	const [disk, setDisk] = React.useState(CUSTOM_INSTANCE_DEFAULTS.diskGb);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
+	const imagePickerRef = React.useRef<HTMLDivElement | null>(null);
 	const isCustom = mode === 'custom';
 	const supportsAlternativeDistros = multipassCapabilities.supportsAlternativeDistros;
 	const distroIcons: Record<InlineLaunchConfig['distro'], string> = {
@@ -88,6 +89,15 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 		[inlineImageOptions, distro]
 	);
 	const selectedImage = filteredImageOptions.find((option) => option.imageKey === selectedImageKey) ?? filteredImageOptions[0];
+	const visibleImageRows = Math.min(Math.max(filteredImageOptions.length, 4), 8);
+	const imagePickerButtonStyle: React.CSSProperties = {
+		...fieldStyle,
+		display: 'flex',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		textAlign: 'left',
+		cursor: 'pointer'
+	};
 
 	React.useEffect(() => {
 		if (isCustom) {
@@ -101,12 +111,29 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 		}
 		if (filteredImageOptions.length === 0) {
 			setSelectedImageKey('');
+			setIsImagePickerExpanded(false);
 			return;
 		}
 		if (!filteredImageOptions.some((option) => option.imageKey === selectedImageKey)) {
 			setSelectedImageKey(filteredImageOptions[0].imageKey);
+			setIsImagePickerExpanded(false);
 		}
 	}, [filteredImageOptions, isCustom, selectedImageKey]);
+
+	React.useEffect(() => {
+		if (!isImagePickerExpanded) {
+			return;
+		}
+
+		const handlePointerDown = (event: MouseEvent) => {
+			if (!imagePickerRef.current?.contains(event.target as Node)) {
+				setIsImagePickerExpanded(false);
+			}
+		};
+
+		document.addEventListener('mousedown', handlePointerDown);
+		return () => document.removeEventListener('mousedown', handlePointerDown);
+	}, [isImagePickerExpanded]);
 
 	const submit = () => {
 		if (isSubmitting) {
@@ -212,24 +239,104 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 					<>
 						<div>
 							<label style={labelStyle}>Image</label>
-							<select
-								value={selectedImageKey}
-								onChange={(event) => setSelectedImageKey(event.currentTarget.value)}
-								disabled={isLoadingInlineImages || filteredImageOptions.length === 0}
-								style={fieldStyle}
-							>
-								{isLoadingInlineImages && filteredImageOptions.length === 0 && (
-									<option value="">Loading images...</option>
+							{filteredImageOptions.length > 0 && (
+								<div
+									style={{
+										marginBottom: '8px',
+										fontSize: '11px',
+										color: 'var(--vscode-descriptionForeground)'
+									}}
+								>
+									{filteredImageOptions.length} image{filteredImageOptions.length === 1 ? '' : 's'} available
+								</div>
+							)}
+							<div ref={imagePickerRef} style={{ position: 'relative' }}>
+								<button
+									type="button"
+									onClick={() => {
+										if (isLoadingInlineImages || filteredImageOptions.length === 0) {
+											return;
+										}
+										setIsImagePickerExpanded((current) => !current);
+									}}
+									disabled={isLoadingInlineImages || filteredImageOptions.length === 0}
+									aria-haspopup="listbox"
+									aria-expanded={isImagePickerExpanded}
+									style={imagePickerButtonStyle}
+								>
+									<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+										{isLoadingInlineImages && filteredImageOptions.length === 0
+											? 'Loading images...'
+											: filteredImageOptions.length === 0
+												? 'No images found'
+												: selectedImage?.label || 'Select an image'}
+									</span>
+									<span
+										aria-hidden="true"
+										style={{
+											marginLeft: '10px',
+											fontSize: '11px',
+											transform: isImagePickerExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+											transition: 'transform 120ms ease'
+										}}
+									>
+										v
+									</span>
+								</button>
+								{isImagePickerExpanded && filteredImageOptions.length > 0 && (
+									<div
+										role="listbox"
+										style={{
+											position: 'absolute',
+											top: 'calc(100% + 6px)',
+											left: 0,
+											right: 0,
+											maxHeight: `${visibleImageRows * 36}px`,
+											overflowY: 'auto',
+											background: 'var(--vscode-input-background)',
+											border: '1px solid var(--vscode-input-border, rgba(127,127,127,0.28))',
+											borderRadius: '6px',
+											boxShadow: '0 10px 24px rgba(0,0,0,0.28)',
+											zIndex: 20,
+										}}
+									>
+										{filteredImageOptions.map((option) => {
+											const isSelected = option.imageKey === selectedImage?.imageKey;
+											return (
+												<button
+													key={option.imageKey}
+													type="button"
+													role="option"
+													aria-selected={isSelected}
+													onClick={() => {
+														setSelectedImageKey(option.imageKey);
+														setIsImagePickerExpanded(false);
+													}}
+													style={{
+														width: '100%',
+														textAlign: 'left',
+														background: isSelected ? 'rgba(233,84,32,0.12)' : 'transparent',
+														color: 'var(--vscode-input-foreground)',
+														border: 'none',
+														borderBottom: '1px solid rgba(127,127,127,0.12)',
+														padding: '9px 10px',
+														cursor: 'pointer',
+														fontSize: '13px',
+														fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+													}}
+												>
+													<div>{option.label}</div>
+													{option.detail && (
+														<div style={{ marginTop: '2px', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
+															{option.detail}
+														</div>
+													)}
+												</button>
+											);
+										})}
+									</div>
 								)}
-								{!isLoadingInlineImages && filteredImageOptions.length === 0 && (
-									<option value="">No images found</option>
-								)}
-								{filteredImageOptions.map((option) => (
-									<option key={option.imageKey} value={option.imageKey}>
-										{option.label}
-									</option>
-								))}
-							</select>
+							</div>
 							{selectedImage?.detail && (
 								<div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--vscode-descriptionForeground)', lineHeight: 1.35 }}>
 									{selectedImage.detail}
