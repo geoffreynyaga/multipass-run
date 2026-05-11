@@ -8,51 +8,51 @@ import { handleGetSnapshots, handleTakeSnapshot, handleRestoreSnapshot, handleDe
 import { handleShellInstance, handleSetupSSHInstance, handleStartAndShellInstance, handleRecoverAndShellInstance } from './shell';
 import { handleLaunchInstance, handleLaunchCustomInstance, handleLaunchInlineInstance, handleGetInlineImageOptions, handleLaunchCloudInitInstance, handleLaunchProfileInstance } from './launch';
 
-type AnyMsg = Record<string, unknown>;
-type Handler = (msg: AnyMsg, ctx: HandlerContext) => Promise<void>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Handler = (msg: any, ctx: HandlerContext) => Promise<void>;
 
 const HANDLERS: Record<string, Handler> = {
-	refreshList:                  async (_m, ctx) => { await ctx.refresh(); },
-	downloadMultipass:            async () => { await handleDownloadMultipass(); },
-	installMultipassViaTerminal:  handleInstallViaTerminal,
-	copyInstallCommand:           handleCopyInstallCommand,
-	openInstallManagerHelp:       handleOpenInstallManagerHelp,
-	openMultipassDocumentation:   async () => { await handleOpenMultipassDocumentation(); },
-	cancelPendingLaunch:          handleCancelPendingLaunch as Handler,
-	clearPendingLaunch:           handleClearPendingLaunch as Handler,
-	retryPendingLaunch:           handleRetryPendingLaunch as Handler,
-	getInstanceInfo:              handleGetInstanceInfo as Handler,
-	openFullDiskAccessSettings:   async () => {
+	refreshList:                 async (_m, ctx) => ctx.refresh(),
+	downloadMultipass:           handleDownloadMultipass,
+	installMultipassViaTerminal: handleInstallViaTerminal,
+	copyInstallCommand:          handleCopyInstallCommand,
+	openInstallManagerHelp:      handleOpenInstallManagerHelp,
+	openMultipassDocumentation:  handleOpenMultipassDocumentation,
+	cancelPendingLaunch:         handleCancelPendingLaunch,
+	clearPendingLaunch:          handleClearPendingLaunch,
+	retryPendingLaunch:          handleRetryPendingLaunch,
+	getInstanceInfo:             handleGetInstanceInfo,
+	openFullDiskAccessSettings:  async () => {
 		if (process.platform === 'darwin') {
 			vscode.env.openExternal(vscode.Uri.parse('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles'));
 		}
 	},
-	addMount:                     handleAddMount as Handler,
-	removeMount:                  handleRemoveMount as Handler,
-	getSnapshots:                 handleGetSnapshots as Handler,
-	takeSnapshot:                 handleTakeSnapshot as Handler,
-	restoreSnapshot:              handleRestoreSnapshot as Handler,
-	deleteSnapshot:               handleDeleteSnapshot as Handler,
-	stopInstance:                 handleStopInstance as Handler,
-	suspendInstance:              handleSuspendInstance as Handler,
-	startInstance:                handleStartInstance as Handler,
-	recoverInstance:              handleRecoverInstance as Handler,
-	shellInstance:                handleShellInstance as Handler,
-	setupSSHInstance:             handleSetupSSHInstance as Handler,
-	startAndShellInstance:        handleStartAndShellInstance as Handler,
-	recoverAndShellInstance:      handleRecoverAndShellInstance as Handler,
-	launchInstance:               handleLaunchInstance,
-	launchCustomInstance:         handleLaunchCustomInstance,
-	launchInlineInstance:         handleLaunchInlineInstance as Handler,
-	getInlineImageOptions:        handleGetInlineImageOptions as Handler,
-	launchCloudInitInstance:      handleLaunchCloudInitInstance,
-	launchProfileInstance:        async () => { await handleLaunchProfileInstance(); },
-	deleteInstance:               handleDeleteInstance as Handler,
-	purgeInstance:                handlePurgeInstance as Handler,
+	addMount:                    handleAddMount,
+	removeMount:                 handleRemoveMount,
+	getSnapshots:                handleGetSnapshots,
+	takeSnapshot:                handleTakeSnapshot,
+	restoreSnapshot:             handleRestoreSnapshot,
+	deleteSnapshot:              handleDeleteSnapshot,
+	stopInstance:                handleStopInstance,
+	suspendInstance:             handleSuspendInstance,
+	startInstance:               handleStartInstance,
+	recoverInstance:             handleRecoverInstance,
+	shellInstance:               handleShellInstance,
+	setupSSHInstance:            handleSetupSSHInstance,
+	startAndShellInstance:       handleStartAndShellInstance,
+	recoverAndShellInstance:     handleRecoverAndShellInstance,
+	launchInstance:              handleLaunchInstance,
+	launchCustomInstance:        handleLaunchCustomInstance,
+	launchInlineInstance:        handleLaunchInlineInstance,
+	getInlineImageOptions:       handleGetInlineImageOptions,
+	launchCloudInitInstance:     handleLaunchCloudInitInstance,
+	launchProfileInstance:       handleLaunchProfileInstance,
+	deleteInstance:              handleDeleteInstance,
+	purgeInstance:               handlePurgeInstance,
 };
 
 export function createMessageDispatcher(ctx: HandlerContext) {
-	return async (message: AnyMsg): Promise<void> => {
+	return async (message: Record<string, unknown>): Promise<void> => {
 		const handler = HANDLERS[message.command as string];
 		if (handler) {
 			await handler(message, ctx);
