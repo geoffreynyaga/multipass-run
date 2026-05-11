@@ -9,10 +9,10 @@ import { MULTIPASS_PATHS } from './utils/constants';
 import { WebviewContent } from './webviewContent';
 import { createDefaultInstance } from './commands/launch/createDefaultInstance';
 import { createDetailedInstance } from './commands/launch/createDetailedInstance';
-import { getMultipassCapabilities } from './utils/multipassVersion';
+import { capabilitiesFromImages } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
 import type { MultipassCapabilities } from './utils/multipassVersion';
-import { buildImageOptions, pickImageForDistro, type MultipassDistro } from './utils/multipassImages';
+import { buildImageOptions, pickImageForDistro, type MultipassDistro, type FindImagesResult } from './utils/multipassImages';
 import { mountFolder, unmountFolder } from './commands/mountFolder';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 
@@ -35,6 +35,8 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 	public terminalManager = new TerminalManager();
 	private readonly _statusBarItem: vscode.StatusBarItem;
 	private _multipassCapabilities: MultipassCapabilities = { supportsAlternativeDistros: false };
+	private _cachedImages: FindImagesResult | null = null;
+	private _imagesFetchPending = false;
 	private _installPlan: InstallPlan | null = null;
 
 	constructor(
@@ -625,7 +627,14 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 				const distro: MultipassDistro = requestedDistro === 'fedora' || requestedDistro === 'debian'
 					? requestedDistro
 					: 'ubuntu';
-				const imagesResult = await MultipassService.findImages();
+				let imagesResult = this._cachedImages;
+				if (!imagesResult) {
+					imagesResult = await MultipassService.findImages();
+					if (imagesResult) {
+						this._cachedImages = imagesResult;
+						this._multipassCapabilities = capabilitiesFromImages(imagesResult);
+					}
+				}
 				if (!imagesResult) {
 					this._view?.webview.postMessage({
 						command: 'inlineImageOptionsError',
@@ -1225,9 +1234,24 @@ class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		const rawLists = await MultipassService.getInstanceLists();
-		this._multipassCapabilities = rawLists.error
-			? { supportsAlternativeDistros: false }
-			: await getMultipassCapabilities();
+		if (rawLists.error) {
+			this._multipassCapabilities = { supportsAlternativeDistros: false };
+			this._cachedImages = null;
+		} else {
+			this._multipassCapabilities = capabilitiesFromImages(this._cachedImages);
+			if (!this._cachedImages && !this._imagesFetchPending) {
+				this._imagesFetchPending = true;
+				MultipassService.findImages().then(result => {
+					this._cachedImages = result;
+					this._imagesFetchPending = false;
+					const caps = capabilitiesFromImages(result);
+					this._multipassCapabilities = caps;
+					this._view?.webview.postMessage({ command: 'multipassCapabilities', capabilities: caps });
+				}).catch(() => {
+					this._imagesFetchPending = false;
+				});
+			}
+		}
 
 		// Build (or clear) the install plan so the not-installed screen can show
 		// a terminal-first CTA when a package manager is available on the host.
