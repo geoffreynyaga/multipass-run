@@ -162,27 +162,50 @@ describe('setupSSHForInstance — fresh install', () => {
 		expect(keygenCall!.args).not.toContain('-b');
 	});
 
-	test('does NOT shell-interpolate the public key (no `bash -c "grep -F ..."` style)', async () => {
+	test('does NOT shell-interpolate the public key into a `-c` script', async () => {
 		await setupSSHForInstance('vm-1', '10.0.0.1');
-		// Walk every recorded execFile arg list. None of them should embed the
-		// literal public-key content as part of a `-c` shell string.
+		// The key must travel as a separate argv positional, never embedded
+		// inside the `sh -c '<script>'` string itself. We inspect every `-c`
+		// argument and assert the key bytes aren't inside it.
 		const pubKey = 'ssh-ed25519 AAAA-public-key multipass-vscode';
 		for (const call of execFileCalls) {
-			for (const arg of call.args) {
-				expect(arg).not.toContain(pubKey);
-				expect(arg).not.toMatch(/grep -F.*ssh-ed25519/);
+			const dashCIdx = call.args.indexOf('-c');
+			if (dashCIdx < 0) {
+				continue;
 			}
+			const script = call.args[dashCIdx + 1];
+			expect(script).not.toContain(pubKey);
+			expect(script).not.toMatch(/grep -F.*ssh-ed25519/);
 		}
 	});
 
-	test('uses multipass transfer to install the key on the guest', async () => {
+	test('installs key via positional shell arg (no transfer, no stdin pipe)', async () => {
 		await setupSSHForInstance('vm-1', '10.0.0.1');
+
+		// Old path used `multipass transfer` and an interim stdin-pipe attempt
+		// used `spawn`; neither should be in the path now. The key must travel
+		// as a positional argv to the guest `sh`, not as a tmp file or stdin.
 		const transferCall = execFileCalls.find(
 			(c) => /multipass$/.test(c.cmd) && c.args[0] === 'transfer'
 		);
-		expect(transferCall).toBeDefined();
-		// args: ['transfer', '<tmpfile>', 'vm-1:/tmp/mp_authkey.pub']
-		expect(transferCall!.args[2]).toBe('vm-1:/tmp/mp_authkey.pub');
+		expect(transferCall).toBeUndefined();
+
+		// Find the install call specifically by script content; there are
+		// multiple `multipass exec -- sh -c` calls (ensureGuestSSHDir, etc.).
+		const installCall = execFileCalls.find(
+			(c) =>
+				/multipass$/.test(c.cmd) &&
+				c.args[0] === 'exec' &&
+				c.args[1] === 'vm-1' &&
+				(c.args[c.args.indexOf('-c') + 1] ?? '').includes('authorized_keys')
+		);
+		expect(installCall).toBeDefined();
+		const script = installCall!.args[installCall!.args.indexOf('-c') + 1];
+		expect(script).toContain('"$1"');
+		expect(script).not.toContain('ssh-ed25519');
+		// Public key shows up as the LAST positional, never inside the script.
+		const last = installCall!.args[installCall!.args.length - 1];
+		expect(last).toBe('ssh-ed25519 AAAA-public-key multipass-vscode');
 	});
 
 	test('skips key install if the key is already in authorized_keys', async () => {

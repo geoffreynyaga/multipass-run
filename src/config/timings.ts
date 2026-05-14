@@ -35,6 +35,15 @@ export const PENDING_LAUNCH_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
 export const SSH_SETUP_POLL_INTERVAL_MS = 1000;
 export const SSH_SETUP_MAX_POLL_ATTEMPTS = 90;
 
+// Per-step ceilings inside setupSSHForInstance. Without these, a hung
+// `multipass exec` blocks until the daemon gives up (~10 min observed),
+// which freezes the progress notification. Failing each step in tens of
+// seconds surfaces a real error toast the user can act on.
+export const SSH_KEYGEN_TIMEOUT_MS = 15000;
+export const SSH_MULTIPASS_VERSION_TIMEOUT_MS = 5000;
+export const SSH_GUEST_EXEC_TIMEOUT_MS = 30000;
+export const SSH_PROBE_TIMEOUT_MS = 15000;
+
 // ─── Activation ─────────────────────────────────────────────────────────────
 // Delay after activation before the auto-prune SSH sweep, giving the
 // multipass daemon time to respond to its first list query.

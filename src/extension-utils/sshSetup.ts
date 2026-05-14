@@ -1,6 +1,17 @@
 import * as vscode from 'vscode';
 import { MultipassService } from '../multipassService';
+import type { SSHSetupStep } from '../utils/sshConfig';
 import { SSH_SETUP_MAX_POLL_ATTEMPTS, SSH_SETUP_POLL_INTERVAL_MS } from '../config/timings';
+
+const STEP_LABELS: Record<SSHSetupStep, string> = {
+	'keypair':      'Generating SSH key pair...',
+	'multipass':    'Locating multipass...',
+	'guest-dir':    'Creating ~/.ssh on guest...',
+	'read-keys':    'Reading guest authorized_keys...',
+	'install-key':  'Installing public key on guest...',
+	'write-config': 'Writing ~/.ssh/config entry...',
+	'probe':        'Probing SSH connection...',
+};
 
 /**
  * Setup SSH connection for an instance
@@ -60,7 +71,9 @@ export async function setupSSHConnection(
 			return;
 		}
 
-		// Setup SSH configuration with progress
+		// Setup SSH configuration with per-step progress. Without these updates
+		// the toast sat on "Configuring SSH at IP..." for ~10 min while a hung
+		// `multipass exec` waited on cloud-init.
 		const sshResult = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
@@ -68,8 +81,10 @@ export async function setupSSHConnection(
 				cancellable: false
 			},
 			async (progress) => {
-				progress.report({ message: `Configuring SSH at ${instanceIP}...` });
-				return await MultipassService.setupSSHForInstance(instanceName, instanceIP);
+				progress.report({ message: `Reached ${instanceIP}, starting setup...` });
+				return await MultipassService.setupSSHForInstance(instanceName, instanceIP, (step) => {
+					progress.report({ message: STEP_LABELS[step] });
+				});
 			}
 		);
 

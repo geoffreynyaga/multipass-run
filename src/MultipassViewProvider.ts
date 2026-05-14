@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as nodePath from 'path';
+import * as nodeOs from 'os';
 import * as nodeFs from 'fs';
 
 import { MultipassService } from './multipassService';
@@ -75,8 +76,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			if (this._globalState.get<boolean>('multipassRun.skipKeyRemovalPrompt', false)) {
 				return;
 			}
+			const sshDirAbsolute = nodePath.join(nodeOs.homedir(), '.ssh');
 			const choice = await vscode.window.showInformationMessage(
-				'No more multipass instances. Remove the multipass SSH key pair from ~/.ssh?',
+				`No more multipass instances. Remove the multipass SSH key pair from ${sshDirAbsolute}?`,
 				'Yes',
 				'No',
 				"Don't ask again"
