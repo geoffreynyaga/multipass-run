@@ -580,7 +580,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 
 		// Reconcile pending launches against the real list. Drop ones that have
-		// landed; flag ones that have been hanging past STUCK_THRESHOLD_MS.
+		// landed; flag ones that have been hanging past the stuck threshold.
 		if (!rawLists.error) {
 			await reconcilePending(this.pendingStore, rawLists);
 		}

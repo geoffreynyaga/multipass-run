@@ -1,7 +1,7 @@
 import type { InstanceLists, MultipassInstance } from '../commands/listInstances';
+import { PENDING_LAUNCH_STUCK_THRESHOLD_MS } from '../config/timings';
 
 export const PENDING_LAUNCHES_STORAGE_KEY = 'multipassRun.pendingLaunches';
-export const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
 
 export type PendingLaunchStatus = 'launching' | 'stuck';
 
@@ -97,7 +97,7 @@ export async function reconcilePending(
 	for (const p of pending) {
 		if (realNames.has(p.name)) {
 			await store.remove(p.name);
-		} else if (p.status !== 'stuck' && now - p.startedAt > STUCK_THRESHOLD_MS) {
+		} else if (p.status !== 'stuck' && now - p.startedAt > PENDING_LAUNCH_STUCK_THRESHOLD_MS) {
 			await store.markStuck(p.name);
 		}
 	}

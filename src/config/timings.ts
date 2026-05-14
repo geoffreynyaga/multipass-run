@@ -22,6 +22,11 @@ export const INSTANCE_START_MAX_POLL_ATTEMPTS = 20;
 export const INSTANCE_STATE_POLL_INTERVAL_MS = 2000;
 export const INSTANCE_STATE_MAX_POLL_ATTEMPTS = 60;
 
+// ─── Pending-launch reconciliation ──────────────────────────────────────────
+// Flag a persisted pending launch as "stuck" if `multipass list` still hasn't
+// surfaced the VM after this long — usually means a stalled image download.
+export const PENDING_LAUNCH_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+
 // ─── Inline-form launches (potentially unnamed) ─────────────────────────────
 // Multipass picks a random name during launch when no --name is passed, so we
 // can't seed an optimistic placeholder. Poll `multipass list` periodically
