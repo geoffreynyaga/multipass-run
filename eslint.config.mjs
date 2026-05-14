@@ -4,8 +4,9 @@ import simpleImportSort from "eslint-plugin-simple-import-sort";
 import unusedImports from "eslint-plugin-unused-imports";
 
 export default [{
-    files: ["**/*.ts"],
+    files: ["**/*.ts", "**/*.tsx"],
 }, {
+    files: ["**/*.ts", "**/*.tsx"],
     plugins: {
         "@typescript-eslint": typescriptEslint,
         "simple-import-sort": simpleImportSort,
