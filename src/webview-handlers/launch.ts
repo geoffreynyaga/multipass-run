@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { launchInstance } from '../commands/launch/launchInstance';
 import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
+import { setupSSHConnection } from '../extension-utils/sshSetup';
 import { MultipassService } from '../multipassService';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
@@ -136,6 +137,15 @@ export async function handleLaunchInlineInstance(msg: { config: LaunchInlineConf
 		);
 		if (launchedName) {
 			pollInstanceStatus(launchedName, () => ctx.refresh());
+			// Fire-and-forget: setupSSHConnection waits for the instance to
+			// reach Running + have an IP, configures ~/.ssh/config, then shows
+			// the Connect-now / Open-Remote-SSH modal. Same pattern used by
+			// instanceCreation.ts for the Command-Palette flow.
+			if (config.enableSSH) {
+				setupSSHConnection(launchedName).catch((err) => {
+					console.error('SSH setup failed:', err);
+				});
+			}
 		} else {
 			await ctx.refresh();
 		}

@@ -15,6 +15,7 @@ export interface LaunchInlineConfig {
 	cpus?: string;
 	memory?: string;
 	disk?: string;
+	enableSSH?: boolean;
 }
 
 export interface HandlerContext {
