@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { MultipassService } from '../multipassService';
+import { SSH_SETUP_MAX_POLL_ATTEMPTS, SSH_SETUP_POLL_INTERVAL_MS } from '../config/timings';
 
 /**
  * Setup SSH connection for an instance
@@ -30,12 +31,11 @@ export async function setupSSHConnection(
 
 		// Wait for instance to be running and get its IP. Polling starts AFTER
 		// `multipass launch` returns, so it covers the state-propagation window
-		// (running flag + IP assignment), not the image download. 1s interval
-		// keeps the popup snappy when the VM finishes booting quickly; 90 max
-		// attempts (90s ceiling) gives the daemon room on slow hosts.
+		// (running flag + IP assignment), not the image download. Tunable via
+		// config/timings.ts: SSH_SETUP_POLL_INTERVAL_MS / SSH_SETUP_MAX_POLL_ATTEMPTS.
 		let attempts = 0;
-		const maxAttempts = 90;
-		const pollIntervalMs = 1000;
+		const maxAttempts = SSH_SETUP_MAX_POLL_ATTEMPTS;
+		const pollIntervalMs = SSH_SETUP_POLL_INTERVAL_MS;
 		let instanceIP = '';
 
 		vscode.window.showInformationMessage(`Waiting for instance '${instanceName}' to be ready...`);

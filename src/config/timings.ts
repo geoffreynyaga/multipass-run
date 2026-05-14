@@ -27,6 +27,19 @@ export const INSTANCE_STATE_MAX_POLL_ATTEMPTS = 60;
 // surfaced the VM after this long — usually means a stalled image download.
 export const PENDING_LAUNCH_STUCK_THRESHOLD_MS = 5 * 60 * 1000;
 
+// ─── SSH setup ──────────────────────────────────────────────────────────────
+// Polling starts AFTER `multipass launch` returns, so this covers the
+// state-propagation window (Running flag + IP assignment), not the image
+// download. 1 s interval keeps the popup snappy when the VM boots fast;
+// 90 attempts (90 s ceiling) gives the daemon room on slow hosts.
+export const SSH_SETUP_POLL_INTERVAL_MS = 1000;
+export const SSH_SETUP_MAX_POLL_ATTEMPTS = 90;
+
+// ─── Activation ─────────────────────────────────────────────────────────────
+// Delay after activation before the auto-prune SSH sweep, giving the
+// multipass daemon time to respond to its first list query.
+export const AUTO_PRUNE_DELAY_MS = 3000;
+
 // ─── Inline-form launches (potentially unnamed) ─────────────────────────────
 // Multipass picks a random name during launch when no --name is passed, so we
 // can't seed an optimistic placeholder. Poll `multipass list` periodically

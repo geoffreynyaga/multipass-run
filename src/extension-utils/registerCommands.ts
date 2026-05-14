@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { MultipassService } from '../multipassService';
 import { MultipassViewProvider } from '../MultipassViewProvider';
 import { PendingLaunchStore } from './pendingLaunches';
+import { AUTO_PRUNE_DELAY_MS } from '../config/timings';
 
 export function registerCommands(
 	context: vscode.ExtensionContext,
@@ -138,5 +139,5 @@ export function registerCommands(
 		} catch (err) {
 			console.warn('[multipass-run] Auto-prune of orphaned SSH entries failed:', err);
 		}
-	}, 3000);
+	}, AUTO_PRUNE_DELAY_MS);
 }
