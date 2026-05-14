@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+// Keys from cloud-init 24.x — update from https://github.com/canonical/cloud-init/blob/main/cloudinit/config/cloud-init-schema.json
 const CLOUD_INIT_KEYS = new Set([
 	'users', 'runcmd', 'bootcmd', 'write_files', 'package_update',
 	'apt', 'ssh_authorized_keys', 'chpasswd', 'packages', 'snap',
