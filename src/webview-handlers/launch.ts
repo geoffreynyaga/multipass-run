@@ -4,6 +4,7 @@ import { launchInstance } from '../commands/launch/launchInstance';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
+import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import type { HandlerContext, LaunchInlineConfig } from './context';
 
 export async function handleLaunchInstance(_msg: unknown, ctx: HandlerContext): Promise<void> {
@@ -91,14 +92,37 @@ export async function handleLaunchInlineInstance(msg: { config: LaunchInlineConf
 			title: instanceName ? `Launching ${instanceName}` : 'Launching instance',
 			cancellable: false,
 		},
-		async (progress) => launchInstance({
-			name: instanceName,
-			image: image.imageKey,
-			cpus: isCustom ? config.cpus : undefined,
-			memory: isCustom ? config.memory : undefined,
-			disk: isCustom ? config.disk : undefined,
-			onProgress: (message) => progress.report({ message }),
-		})
+		async (progress) => {
+			const launchPromise = launchInstance({
+				name: instanceName,
+				image: image.imageKey,
+				cpus: isCustom ? config.cpus : undefined,
+				memory: isCustom ? config.memory : undefined,
+				disk: isCustom ? config.disk : undefined,
+				onProgress: (message) => progress.report({ message }),
+			});
+
+			// Drive refresh while launch is in flight so the row appears as soon
+			// as `multipass list` registers it. Critical for unnamed launches:
+			// multipass picks a random name during launch, so we have no name to
+			// seed an optimistic placeholder and must discover the row via poll.
+			// Self-clear past the max duration so a hung CLI can't keep polling
+			// indefinitely.
+			const pollStartedAt = Date.now();
+			const refreshInterval = setInterval(() => {
+				if (Date.now() - pollStartedAt >= INLINE_LAUNCH_MAX_DURATION_MS) {
+					clearInterval(refreshInterval);
+					return;
+				}
+				ctx.refresh().catch(() => { /* transient list errors are fine */ });
+			}, INLINE_LAUNCH_REFRESH_INTERVAL_MS);
+
+			try {
+				return await launchPromise;
+			} finally {
+				clearInterval(refreshInterval);
+			}
+		}
 	);
 
 	if (result.success) {
