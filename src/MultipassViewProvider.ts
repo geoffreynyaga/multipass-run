@@ -23,6 +23,12 @@ import { TerminalManager } from './extension-utils/terminalManager';
 import { type InstallPlan, detectInstallPlan } from './utils/installPackageManager';
 import { createMessageDispatcher } from './webview-handlers/index';
 import type { HandlerContext } from './webview-handlers/context';
+import {
+	INSTANCE_START_MAX_POLL_ATTEMPTS,
+	INSTANCE_START_POLL_INTERVAL_MS,
+	LAUNCH_PROGRESS_MAX_WAIT_MS,
+	LAUNCH_PROGRESS_POLL_INTERVAL_MS,
+} from './config/timings';
 
 function suggestVMNameFromFolder(folderName: string): string {
 	const cleaned = folderName
@@ -216,11 +222,10 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				launchPromise.then(r => { launchSettled = r; }).catch(() => { /* tracked via timeout */ });
 
 				const startMs = Date.now();
-				const maxWaitMs = 5 * 60 * 1000;
 				let running = false;
 
-				while (Date.now() - startMs < maxWaitMs) {
-					await new Promise(r => setTimeout(r, 3000));
+				while (Date.now() - startMs < LAUNCH_PROGRESS_MAX_WAIT_MS) {
+					await new Promise(r => setTimeout(r, LAUNCH_PROGRESS_POLL_INTERVAL_MS));
 
 					if (launchSettled) { break; }
 
@@ -245,8 +250,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 						return false;
 					}
 				} else if (!running) {
+					const timeoutMinutes = Math.round(LAUNCH_PROGRESS_MAX_WAIT_MS / 60000);
 					vscode.window.showErrorMessage(
-						`'${opts.instanceName}' did not reach Running within 5 minutes.`
+						`'${opts.instanceName}' did not reach Running within ${timeoutMinutes} minutes.`
 					);
 					return false;
 				} else {
@@ -430,14 +436,14 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				return;
 			}
 
-			// Poll until Running (3 s × 20 = 60 s ceiling). Track success so we
-			// can surface a real error instead of letting mount fail confusingly.
+			// Poll until Running. Track success so we can surface a real error
+			// instead of letting mount fail confusingly.
 			let started = false;
 			await vscode.window.withProgress(
 				{ location: vscode.ProgressLocation.Notification, title: `Starting ${vmName}...` },
 				async () => {
-					for (let i = 0; i < 20; i++) {
-						await new Promise(r => setTimeout(r, 3000));
+					for (let i = 0; i < INSTANCE_START_MAX_POLL_ATTEMPTS; i++) {
+						await new Promise(r => setTimeout(r, INSTANCE_START_POLL_INTERVAL_MS));
 						const check = await MultipassService.getInstanceLists();
 						if (!check.error) {
 							const inst = check.active.find(x => x.name === vmName);
@@ -452,8 +458,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			await this.refresh();
 
 			if (!started) {
+				const timeoutSeconds = Math.round((INSTANCE_START_MAX_POLL_ATTEMPTS * INSTANCE_START_POLL_INTERVAL_MS) / 1000);
 				vscode.window.showErrorMessage(
-					`'${vmName}' did not reach Running within 60 s. Mount aborted.`
+					`'${vmName}' did not reach Running within ${timeoutSeconds} s. Mount aborted.`
 				);
 				return;
 			}
