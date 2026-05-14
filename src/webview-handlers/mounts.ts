@@ -1,7 +1,8 @@
-import * as vscode from 'vscode';
 import * as nodePath from 'path';
-import { MultipassService } from '../multipassService';
+import * as vscode from 'vscode';
+
 import { mountFolder, unmountFolder } from '../commands/mountFolder';
+import { MultipassService } from '../multipassService';
 import type { HandlerContext } from './context';
 
 export async function handleAddMount(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {

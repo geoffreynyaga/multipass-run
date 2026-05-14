@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import { MultipassService } from '../multipassService';
 import type { HandlerContext } from './context';
 

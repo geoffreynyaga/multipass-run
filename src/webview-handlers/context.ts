@@ -1,9 +1,10 @@
 import type * as vscode from 'vscode';
+
 import type { PendingLaunchStore } from '../extension-utils/pendingLaunches';
 import type { TerminalManager } from '../extension-utils/terminalManager';
-import type { MultipassCapabilities } from '../utils/multipassVersion';
-import type { FindImagesResult, MultipassDistro } from '../utils/multipassImages';
 import type { InstallPlan } from '../utils/installPackageManager';
+import type { FindImagesResult, MultipassDistro } from '../utils/multipassImages';
+import type { MultipassCapabilities } from '../utils/multipassVersion';
 
 export interface LaunchInlineConfig {
 	mode: 'quick' | 'custom';

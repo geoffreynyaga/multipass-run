@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
+
+import { SSH_SETUP_MAX_POLL_ATTEMPTS, SSH_SETUP_POLL_INTERVAL_MS } from '../config/timings';
 import { MultipassService } from '../multipassService';
 import type { SSHSetupStep } from '../utils/sshConfig';
-import { SSH_SETUP_MAX_POLL_ATTEMPTS, SSH_SETUP_POLL_INTERVAL_MS } from '../config/timings';
 
 const STEP_LABELS: Record<SSHSetupStep, string> = {
 	'keypair':      'Generating SSH key pair...',

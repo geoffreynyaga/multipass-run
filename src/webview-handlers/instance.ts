@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { MultipassService } from '../multipassService';
+
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
+import { MultipassService } from '../multipassService';
 import type { HandlerContext } from './context';
 
 export async function handleGetInstanceInfo(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {

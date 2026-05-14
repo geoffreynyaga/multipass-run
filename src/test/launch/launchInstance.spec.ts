@@ -3,10 +3,10 @@ jest.mock('../../utils/multipassExecutable', () => ({
 	spawnMultipassCommand: jest.fn(),
 }));
 
+import { PassThrough } from 'stream';
+
 import { buildLaunchArgs, parseLaunchedInstanceName } from '../../commands/launch/launchInstance';
 import { runMultipassCommand, spawnMultipassCommand } from '../../utils/multipassExecutable';
-
-import { PassThrough } from 'stream';
 
 const runMultipassCommandMock = runMultipassCommand as jest.MockedFunction<typeof runMultipassCommand>;
 const spawnMultipassCommandMock = spawnMultipassCommand as jest.MockedFunction<typeof spawnMultipassCommand>;

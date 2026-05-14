@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import { MULTIPASS_DOWNLOAD_URL } from '../utils/installPackageManager';
 import type { HandlerContext } from './context';
 

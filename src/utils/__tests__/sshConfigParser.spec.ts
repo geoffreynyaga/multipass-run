@@ -1,7 +1,7 @@
 import {
+	addBlock,
 	BLOCK_BEGIN_PREFIX,
 	BLOCK_END_PREFIX,
-	addBlock,
 	buildHostBody,
 	countBlocks,
 	extractBlocks,

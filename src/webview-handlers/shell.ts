@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import { MULTIPASS_PATHS } from '../utils/constants';
-import { MultipassService } from '../multipassService';
+
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { setupSSHConnection } from '../extension-utils/sshSetup';
+import { MultipassService } from '../multipassService';
+import { MULTIPASS_PATHS } from '../utils/constants';
 import type { HandlerContext } from './context';
 
 function buildShellCommand(instanceName: string): string {

@@ -1,13 +1,13 @@
-import {
-	PendingLaunchStore,
-	PENDING_LAUNCHES_STORAGE_KEY,
-	mergePendingIntoLists,
-	reconcilePending,
-	type MementoLike,
-	type PendingLaunch,
-} from '../pendingLaunches';
-import { PENDING_LAUNCH_STUCK_THRESHOLD_MS } from '../../config/timings';
 import type { InstanceLists } from '../../commands/listInstances';
+import { PENDING_LAUNCH_STUCK_THRESHOLD_MS } from '../../config/timings';
+import {
+	type MementoLike,
+	mergePendingIntoLists,
+	PENDING_LAUNCHES_STORAGE_KEY,
+	type PendingLaunch,
+	PendingLaunchStore,
+	reconcilePending,
+} from '../pendingLaunches';
 
 class MemoryMemento implements MementoLike {
 	public writes = 0;

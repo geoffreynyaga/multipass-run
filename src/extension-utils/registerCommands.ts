@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+
+import { AUTO_PRUNE_DELAY_MS } from '../config/timings';
 import { MultipassService } from '../multipassService';
 import { MultipassViewProvider } from '../MultipassViewProvider';
 import { PendingLaunchStore } from './pendingLaunches';
-import { AUTO_PRUNE_DELAY_MS } from '../config/timings';
 
 export function registerCommands(
 	context: vscode.ExtensionContext,

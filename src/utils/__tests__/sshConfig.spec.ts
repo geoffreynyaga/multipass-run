@@ -34,16 +34,16 @@ import * as os from 'os';
 import * as path from 'path';
 
 import {
-	BLOCK_BEGIN_PREFIX,
-	BLOCK_END_PREFIX,
-	countBlocks,
-} from '../sshConfigParser';
-import {
 	countManagedSSHEntries,
 	removeManagedSSHKeyPair,
 	removeSSHConfigForInstance,
 	setupSSHForInstance,
 } from '../sshConfig';
+import {
+	BLOCK_BEGIN_PREFIX,
+	BLOCK_END_PREFIX,
+	countBlocks,
+} from '../sshConfigParser';
 import { KEY_NAME_ED25519, KEY_NAME_RSA_LEGACY } from '../sshKeyPath';
 
 const execFileMock = cp.execFile as unknown as jest.Mock;

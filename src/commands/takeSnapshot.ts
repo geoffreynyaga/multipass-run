@@ -1,6 +1,7 @@
-import { MULTIPASS_PATHS } from '../utils/constants';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+
+import { MULTIPASS_PATHS } from '../utils/constants';
 
 const execAsync = promisify(exec);
 
@@ -18,8 +19,8 @@ export async function takeSnapshot(
 	options: TakeSnapshotOptions = {}
 ): Promise<{ success: boolean; error?: string; snapshotName?: string }> {
 	const args: string[] = [];
-	if (options.name) args.push('--name', shellQuote(options.name));
-	if (options.comment) args.push('--comment', shellQuote(options.comment));
+	if (options.name) {args.push('--name', shellQuote(options.name));}
+	if (options.comment) {args.push('--comment', shellQuote(options.comment));}
 
 	let lastError: any = null;
 	for (const multipassPath of MULTIPASS_PATHS) {

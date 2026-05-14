@@ -1,4 +1,4 @@
-import { getImageEntriesForDistro, type FindImagesResult } from './multipassImages';
+import { type FindImagesResult,getImageEntriesForDistro } from './multipassImages';
 
 export interface MultipassCapabilities {
 	supportsAlternativeDistros: boolean;

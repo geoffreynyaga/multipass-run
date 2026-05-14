@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
-import type { HandlerContext } from './context';
-import { handleDownloadMultipass, handleInstallViaTerminal, handleCopyInstallCommand, handleOpenInstallManagerHelp, handleOpenMultipassDocumentation } from './install';
-import { handleCancelPendingLaunch, handleClearPendingLaunch, handleRetryPendingLaunch } from './pending';
-import { handleGetInstanceInfo, handleStopInstance, handleSuspendInstance, handleStartInstance, handleRecoverInstance, handleDeleteInstance, handlePurgeInstance } from './instance';
-import { handleAddMount, handleRemoveMount } from './mounts';
-import { handleGetSnapshots, handleTakeSnapshot, handleRestoreSnapshot, handleDeleteSnapshot } from './snapshots';
-import { handleShellInstance, handleSetupSSHInstance, handleStartAndShellInstance, handleRecoverAndShellInstance } from './shell';
-import { handleLaunchInstance, handleLaunchCustomInstance, handleLaunchInlineInstance, handleGetInlineImageOptions, handleLaunchCloudInitInstance, handleLaunchProfileInstance } from './launch';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import type { HandlerContext } from './context';
+import { handleCopyInstallCommand, handleDownloadMultipass, handleInstallViaTerminal, handleOpenInstallManagerHelp, handleOpenMultipassDocumentation } from './install';
+import { handleDeleteInstance, handleGetInstanceInfo, handlePurgeInstance,handleRecoverInstance, handleStartInstance, handleStopInstance, handleSuspendInstance } from './instance';
+import { handleGetInlineImageOptions, handleLaunchCloudInitInstance, handleLaunchCustomInstance, handleLaunchInlineInstance, handleLaunchInstance, handleLaunchProfileInstance } from './launch';
+import { handleAddMount, handleRemoveMount } from './mounts';
+import { handleCancelPendingLaunch, handleClearPendingLaunch, handleRetryPendingLaunch } from './pending';
+import { handleRecoverAndShellInstance,handleSetupSSHInstance, handleShellInstance, handleStartAndShellInstance } from './shell';
+import { handleDeleteSnapshot,handleGetSnapshots, handleRestoreSnapshot, handleTakeSnapshot } from './snapshots';
+
+ 
 type Handler = (msg: any, ctx: HandlerContext) => Promise<void>;
 
 const HANDLERS: Record<string, Handler> = {

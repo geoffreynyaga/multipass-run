@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { MultipassService } from '../multipassService';
+
 import { INSTANCE_STATE_MAX_POLL_ATTEMPTS, INSTANCE_STATE_POLL_INTERVAL_MS } from '../config/timings';
+import { MultipassService } from '../multipassService';
 
 /**
  * Poll an instance's status until it's running or max attempts reached

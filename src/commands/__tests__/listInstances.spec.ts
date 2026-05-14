@@ -2,8 +2,8 @@ jest.mock('../../utils/multipassExecutable', () => ({
 	runMultipassCommand: jest.fn(),
 }));
 
-import { getInstanceLists } from '../listInstances';
 import { runMultipassCommand } from '../../utils/multipassExecutable';
+import { getInstanceLists } from '../listInstances';
 
 const runMultipassCommandMock = runMultipassCommand as jest.MockedFunction<typeof runMultipassCommand>;
 

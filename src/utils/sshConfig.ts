@@ -1,9 +1,17 @@
+import { exec, execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { promisify } from 'util';
 import * as vscode from 'vscode';
 
-import { exec, execFile } from 'child_process';
+import {
+	SSH_GUEST_EXEC_TIMEOUT_MS,
+	SSH_KEYGEN_TIMEOUT_MS,
+	SSH_MULTIPASS_VERSION_TIMEOUT_MS,
+	SSH_PROBE_TIMEOUT_MS,
+} from '../config/timings';
+import { MULTIPASS_PATHS } from './constants';
 import {
 	addBlock,
 	buildHostBody,
@@ -16,19 +24,10 @@ import {
 import {
 	KEY_NAME_ED25519,
 	KEY_NAME_RSA_LEGACY,
-	type KeyPaths,
 	keygenArgs,
+	type KeyPaths,
 	resolveKeyPaths,
 } from './sshKeyPath';
-
-import { MULTIPASS_PATHS } from './constants';
-import {
-	SSH_GUEST_EXEC_TIMEOUT_MS,
-	SSH_KEYGEN_TIMEOUT_MS,
-	SSH_MULTIPASS_VERSION_TIMEOUT_MS,
-	SSH_PROBE_TIMEOUT_MS,
-} from '../config/timings';
-import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);

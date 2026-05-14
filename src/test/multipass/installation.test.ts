@@ -1,5 +1,4 @@
 import * as assert from 'assert';
-import * as vscode from 'vscode';
 
 suite('Multipass Installation Tests', () => {
 	suite('Multipass Detection', () => {

@@ -1,35 +1,34 @@
-import * as vscode from 'vscode';
-import * as nodePath from 'path';
-import * as nodeOs from 'os';
 import * as nodeFs from 'fs';
+import * as nodeOs from 'os';
+import * as nodePath from 'path';
+import * as vscode from 'vscode';
 
-import { MultipassService } from './multipassService';
-import { WebviewContent } from './webviewContent';
-import { capabilitiesFromImages } from './utils/multipassVersion';
 import { launchInstance } from './commands/launch/launchInstance';
-import type { MultipassCapabilities } from './utils/multipassVersion';
-import type { FindImagesResult } from './utils/multipassImages';
 import { mountFolder } from './commands/mountFolder';
-import { isCloudInitFile } from './utils/cloudInitDetect';
-
-import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
-import { pollInstanceStatus } from './extension-utils/instancePolling';
-import {
-	PendingLaunchStore,
-	mergePendingIntoLists,
-	reconcilePending,
-} from './extension-utils/pendingLaunches';
-import { setupSSHConnection } from './extension-utils/sshSetup';
-import { TerminalManager } from './extension-utils/terminalManager';
-import { type InstallPlan, detectInstallPlan } from './utils/installPackageManager';
-import { createMessageDispatcher } from './webview-handlers/index';
-import type { HandlerContext } from './webview-handlers/context';
 import {
 	INSTANCE_START_MAX_POLL_ATTEMPTS,
 	INSTANCE_START_POLL_INTERVAL_MS,
 	LAUNCH_PROGRESS_MAX_WAIT_MS,
 	LAUNCH_PROGRESS_POLL_INTERVAL_MS,
 } from './config/timings';
+import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
+import { pollInstanceStatus } from './extension-utils/instancePolling';
+import {
+	mergePendingIntoLists,
+	PendingLaunchStore,
+	reconcilePending,
+} from './extension-utils/pendingLaunches';
+import { setupSSHConnection } from './extension-utils/sshSetup';
+import { TerminalManager } from './extension-utils/terminalManager';
+import { MultipassService } from './multipassService';
+import { isCloudInitFile } from './utils/cloudInitDetect';
+import { detectInstallPlan,type InstallPlan } from './utils/installPackageManager';
+import type { FindImagesResult } from './utils/multipassImages';
+import type { MultipassCapabilities } from './utils/multipassVersion';
+import { capabilitiesFromImages } from './utils/multipassVersion';
+import type { HandlerContext } from './webview-handlers/context';
+import { createMessageDispatcher } from './webview-handlers/index';
+import { WebviewContent } from './webviewContent';
 
 function suggestVMNameFromFolder(folderName: string): string {
 	const cleaned = folderName

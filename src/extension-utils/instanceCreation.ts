@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 
-import { MultipassService, createDefaultInstance, createDetailedInstance, launchInstance } from '../multipassService';
-
+import { createDefaultInstance, createDetailedInstance, launchInstance,MultipassService } from '../multipassService';
 import { PendingLaunchStore } from './pendingLaunches';
 import { setupSSHConnection } from './sshSetup';
 

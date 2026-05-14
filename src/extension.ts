@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { MultipassViewProvider } from './MultipassViewProvider';
+
 import { PendingLaunchStore } from './extension-utils/pendingLaunches';
 import { registerCommands } from './extension-utils/registerCommands';
+import { MultipassViewProvider } from './MultipassViewProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "multipass-run" is now active!');

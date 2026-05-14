@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
-import { MultipassService } from '../multipassService';
+
 import { launchInstance } from '../commands/launch/launchInstance';
+import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
+import { MultipassService } from '../multipassService';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
-import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import type { HandlerContext, LaunchInlineConfig } from './context';
 
 export async function handleLaunchInstance(_msg: unknown, ctx: HandlerContext): Promise<void> {

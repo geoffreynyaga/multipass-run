@@ -1,7 +1,7 @@
 import {
+	buildInstallPlan,
 	MULTIPASS_DOWNLOAD_URL,
 	type PackageManager,
-	buildInstallPlan,
 } from '../installPackageManager';
 
 const available = (...present: PackageManager[]) => {
