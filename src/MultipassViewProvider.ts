@@ -69,10 +69,24 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 	private async maybeOfferKeyRemovalPrompt(): Promise<void> {
 		try {
+			if (this._globalState.get<boolean>('multipassRun.skipKeyRemovalPrompt', false)) {
+				return;
+			}
+			// The prompt text claims "No more multipass instances"; bail
+			// unless that's literally true. Otherwise users see this popup
+			// after deleting one of several VMs and rightly get confused.
+			const lists = await MultipassService.getInstanceLists();
+			if (lists.active.length > 0 || lists.deleted.length > 0) {
+				return;
+			}
+			// Managed config blocks still pointing at the key — don't
+			// blow the key away while something might use it.
 			if (MultipassService.countManagedSSHEntries() > 0) {
 				return;
 			}
-			if (this._globalState.get<boolean>('multipassRun.skipKeyRemovalPrompt', false)) {
+			// Nothing on disk to remove (SSH was never set up, or the key
+			// pair was already cleaned up). No point asking.
+			if (!MultipassService.hasManagedSSHKeyPair()) {
 				return;
 			}
 			const sshDirAbsolute = nodePath.join(nodeOs.homedir(), '.ssh');

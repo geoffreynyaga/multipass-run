@@ -372,6 +372,23 @@ export async function pruneOrphanedSSHEntries(
 }
 
 /**
+ * Returns true when at least one of the multipass-managed SSH key files
+ * still exists on disk. The last-instance purge prompt uses this to skip
+ * asking the user about a key pair that was never created in the first
+ * place (e.g. they only ever launched VMs with SSH disabled).
+ */
+export function hasManagedSSHKeyPair(): boolean {
+	const dir = sshDir();
+	for (const baseName of [KEY_NAME_ED25519, KEY_NAME_RSA_LEGACY]) {
+		const priv = path.join(dir, baseName);
+		if (fs.existsSync(priv) || fs.existsSync(`${priv}.pub`)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Deletes both the ed25519 and the legacy RSA key pair if either exists.
  * Used by the last-instance purge prompt.
  */

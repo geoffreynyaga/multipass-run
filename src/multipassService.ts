@@ -18,6 +18,7 @@ import { setupSSH as setupSSHCommand } from './utils/setupSSH';
 import {
 	connectToInstanceViaSSH as connectToInstanceViaSSHCommand,
 	countManagedSSHEntries as countManagedSSHEntriesCommand,
+	hasManagedSSHKeyPair as hasManagedSSHKeyPairCommand,
 	openRemoteSSHView as openRemoteSSHViewCommand,
 	pruneOrphanedSSHEntries as pruneOrphanedSSHEntriesCommand,
 	removeManagedSSHKeyPair as removeManagedSSHKeyPairCommand,
@@ -54,6 +55,7 @@ export class MultipassService {
 	public static removeSSHConfigForInstance = removeSSHConfigForInstanceCommand;
 	public static connectToInstanceViaSSH = connectToInstanceViaSSHCommand;
 	public static countManagedSSHEntries = countManagedSSHEntriesCommand;
+	public static hasManagedSSHKeyPair = hasManagedSSHKeyPairCommand;
 	public static removeManagedSSHKeyPair = removeManagedSSHKeyPairCommand;
 	public static pruneOrphanedSSHEntries = pruneOrphanedSSHEntriesCommand;
 	public static openRemoteSSHView = openRemoteSSHViewCommand;
