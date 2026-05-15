@@ -1,4 +1,8 @@
-import { runMultipassCommand } from '../utils/multipassExecutable';
+import { MULTIPASS_PATHS } from '../utils/constants';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 export async function mountFolder(
 	vmName: string,

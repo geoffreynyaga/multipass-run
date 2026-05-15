@@ -1,8 +1,9 @@
+import React from 'react';
+
 import { CUSTOM_INSTANCE_DEFAULTS } from '../../../utils/launchDefaults';
 import type { InlineLaunchConfig } from '../../App';
-import type { InlineLaunchFormProps } from './types';
-import React from 'react';
 import { getMonoFont } from '../../utils/fontUtils';
+import type { InlineLaunchFormProps } from './types';
 
 export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	mode,
@@ -27,6 +28,7 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	const [cpus, setCpus] = React.useState(CUSTOM_INSTANCE_DEFAULTS.cpus);
 	const [memory, setMemory] = React.useState(CUSTOM_INSTANCE_DEFAULTS.memoryGb);
 	const [disk, setDisk] = React.useState(CUSTOM_INSTANCE_DEFAULTS.diskGb);
+	const [enableSSH, setEnableSSH] = React.useState(false);
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const imagePickerRef = React.useRef<HTMLDivElement | null>(null);
 	const isCustom = mode === 'custom';
@@ -149,7 +151,8 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 			imageRelease: isCustom ? selectedImage?.release : undefined,
 			cpus: isCustom ? cpus : undefined,
 			memory: isCustom ? `${memory}G` : undefined,
-			disk: isCustom ? `${disk}G` : undefined
+			disk: isCustom ? `${disk}G` : undefined,
+			enableSSH
 		});
 		if (instanceName) {
 			onOptimisticLaunch({
@@ -376,6 +379,31 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 					<span style={{ opacity: 0.65 }}>$ </span>
 					{launchPreview}
 				</div>
+
+				<label
+					style={{
+						display: 'flex',
+						alignItems: 'flex-start',
+						gap: '10px',
+						cursor: 'pointer',
+						fontSize: '12px',
+						color: 'var(--vscode-foreground)',
+						fontFamily: 'Ubuntu, system-ui, -apple-system, sans-serif'
+					}}
+				>
+					<input
+						type="checkbox"
+						checked={enableSSH}
+						onChange={(event) => setEnableSSH(event.currentTarget.checked)}
+						style={{ marginTop: '2px', accentColor: '#E95420', cursor: 'pointer' }}
+					/>
+					<span>
+						<span style={{ fontWeight: 600 }}>Enable Remote SSH</span>
+						<span style={{ display: 'block', marginTop: '3px', fontSize: '11px', color: 'var(--vscode-descriptionForeground)' }}>
+							Configures ~/.ssh/config and opens the Connect prompt after launch.
+						</span>
+					</span>
+				</label>
 			</div>
 
 			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', paddingTop: '16px' }}>

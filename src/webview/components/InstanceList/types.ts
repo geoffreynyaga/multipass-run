@@ -1,5 +1,5 @@
-import type { InlineImageOption, InlineLaunchConfig } from '../../App';
 import type { MultipassCapabilities } from '../../../utils/multipassVersion';
+import type { InlineImageOption, InlineLaunchConfig } from '../../App';
 
 export interface DistroIconUris {
 	ubuntuIconUri: string;

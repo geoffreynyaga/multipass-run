@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+
+import { INSTANCE_STATE_MAX_POLL_ATTEMPTS, INSTANCE_STATE_POLL_INTERVAL_MS } from '../config/timings';
 import { MultipassService } from '../multipassService';
 
 /**
@@ -8,7 +10,7 @@ import { MultipassService } from '../multipassService';
 export async function pollInstanceStatus(
 	instanceName: string,
 	onRefresh: () => Promise<void>,
-	maxAttempts: number = 60
+	maxAttempts: number = INSTANCE_STATE_MAX_POLL_ATTEMPTS
 ): Promise<void> {
 	// Don't refresh immediately - the optimistic update already added it
 	// Just start polling
@@ -31,5 +33,5 @@ export async function pollInstanceStatus(
 			vscode.window.showWarningMessage(`Instance '${instanceName}' is taking longer than expected to start`);
 			await onRefresh();
 		}
-	}, 2000); // Poll every 2 seconds
+	}, INSTANCE_STATE_POLL_INTERVAL_MS);
 }

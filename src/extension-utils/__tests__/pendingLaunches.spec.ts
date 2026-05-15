@@ -1,13 +1,13 @@
-import {
-	PendingLaunchStore,
-	PENDING_LAUNCHES_STORAGE_KEY,
-	STUCK_THRESHOLD_MS,
-	mergePendingIntoLists,
-	reconcilePending,
-	type MementoLike,
-	type PendingLaunch,
-} from '../pendingLaunches';
 import type { InstanceLists } from '../../commands/listInstances';
+import { PENDING_LAUNCH_STUCK_THRESHOLD_MS } from '../../config/timings';
+import {
+	type MementoLike,
+	mergePendingIntoLists,
+	PENDING_LAUNCHES_STORAGE_KEY,
+	type PendingLaunch,
+	PendingLaunchStore,
+	reconcilePending,
+} from '../pendingLaunches';
 
 class MemoryMemento implements MementoLike {
 	public writes = 0;
@@ -190,11 +190,11 @@ describe('reconcilePending', () => {
 		expect(store.list()).toEqual([]);
 	});
 
-	test('marks pending as stuck after STUCK_THRESHOLD_MS', async () => {
+	test('marks pending as stuck after PENDING_LAUNCH_STUCK_THRESHOLD_MS', async () => {
 		const store = new PendingLaunchStore(new MemoryMemento());
 		const startedAt = 1_000_000;
 		await store.add(makeLaunch({ name: 'vm1', startedAt }));
-		const now = startedAt + STUCK_THRESHOLD_MS + 1;
+		const now = startedAt + PENDING_LAUNCH_STUCK_THRESHOLD_MS + 1;
 		await reconcilePending(store, { active: [], deleted: [] }, now);
 		expect(store.list()[0].status).toBe('stuck');
 	});
@@ -220,7 +220,7 @@ describe('reconcilePending', () => {
 		const store = new PendingLaunchStore(new MemoryMemento());
 		const now = 10_000_000;
 		await store.add(makeLaunch({ name: 'done', startedAt: now - 1000 }));
-		await store.add(makeLaunch({ name: 'old', startedAt: now - STUCK_THRESHOLD_MS - 1 }));
+		await store.add(makeLaunch({ name: 'old', startedAt: now - PENDING_LAUNCH_STUCK_THRESHOLD_MS - 1 }));
 		await store.add(makeLaunch({ name: 'fresh', startedAt: now - 1000 }));
 		const lists: InstanceLists = {
 			active: [{ name: 'done', state: 'Running', ipv4: '', release: '' }],

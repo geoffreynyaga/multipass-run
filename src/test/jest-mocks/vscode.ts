@@ -53,7 +53,7 @@ export const workspace = {
 	}),
 	fs: {
 		readFile: jest.fn(async (uri: Uri) => {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			 
 			const fs = require('fs');
 			return fs.promises.readFile((uri as any).fsPath);
 		}),

@@ -1,6 +1,7 @@
-import { MULTIPASS_PATHS } from '../utils/constants';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+
+import { MULTIPASS_PATHS } from '../utils/constants';
 
 const execAsync = promisify(exec);
 

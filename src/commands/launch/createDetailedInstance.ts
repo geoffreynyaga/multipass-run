@@ -1,11 +1,10 @@
 import * as vscode from 'vscode';
 
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../utils/launchDefaults';
+import { buildImageOptions } from '../../utils/multipassImages';
 import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
-import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
-import { buildImageOptions } from '../../utils/multipassImages';
-import { CUSTOM_INSTANCE_DEFAULTS } from '../../utils/launchDefaults';
 
 export interface DetailedInstanceConfig {
 	name: string;

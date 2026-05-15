@@ -1,5 +1,5 @@
-import { parseFindImagesJson, type FindImagesResult } from './multipassImages';
 import { runMultipassCommand } from './multipassExecutable';
+import { type FindImagesResult,parseFindImagesJson } from './multipassImages';
 
 export async function findImages(): Promise<FindImagesResult | null> {
 	try {

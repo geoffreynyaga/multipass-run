@@ -1,6 +1,7 @@
 import * as path from 'path';
-import { isCloudInitFile } from '../../utils/cloudInitDetect';
 import { Uri } from 'vscode';
+
+import { isCloudInitFile } from '../../utils/cloudInitDetect';
 
 const fixturesDir = path.resolve(__dirname, '../../test/fixtures');
 

@@ -1,9 +1,8 @@
+import { type ChildProcessWithoutNullStreams,exec, execFile, spawn } from 'child_process';
 import * as fs from 'fs';
-
-import { exec, execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import { promisify } from 'util';
 
 import { MULTIPASS_PATHS } from './constants';
-import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);

@@ -1,12 +1,12 @@
-import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
 import React, { useEffect, useState } from 'react';
-import type { InstallPlan } from '../utils/installPackageManager';
-import type { MultipassCapabilities } from '../utils/multipassVersion';
-import type { MultipassDistro, MultipassImageOption } from '../utils/multipassImages';
 
-import InstanceList from './components/InstanceList';
-import { InstallMissingScreen } from './components/InstallMissingScreen';
+import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
+import type { InstallPlan } from '../utils/installPackageManager';
+import type { MultipassDistro, MultipassImageOption } from '../utils/multipassImages';
+import type { MultipassCapabilities } from '../utils/multipassVersion';
 import { DaemonErrorScreen } from './components/DaemonErrorScreen';
+import { InstallMissingScreen } from './components/InstallMissingScreen';
+import InstanceList from './components/InstanceList';
 
 declare const acquireVsCodeApi: () => any;
 declare global {
@@ -35,6 +35,7 @@ export interface InlineLaunchConfig {
 	cpus?: string;
 	memory?: string;
 	disk?: string;
+	enableSSH?: boolean;
 }
 
 export type InlineImageOption = MultipassImageOption;

@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 
+import { buildImageOptions } from '../../utils/multipassImages';
 import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
-import { buildImageOptions } from '../../utils/multipassImages';
 
 export interface CreateInstanceCallbacks {
 	onInstanceNameSelected?: (name: string) => void;

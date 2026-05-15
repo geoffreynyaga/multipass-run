@@ -1,7 +1,24 @@
 // SSH utilities — imported for the MultipassService class
+import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
+import { deleteSnapshot as deleteSnapshotCommand } from './commands/deleteSnapshot';
+import { findImages as findImagesCommand } from './commands/findImages';
+import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
+import { instanceNameExists as instanceNameExistsCommand } from './commands/launch/instanceNameExists';
+// Instance commands — imported for the MultipassService class
+import { getInstanceLists as getInstanceListsCommand, getInstances as getInstancesCommand } from './commands/listInstances';
+import { listSnapshots as listSnapshotsCommand } from './commands/listSnapshots';
+import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
+import { restoreSnapshot as restoreSnapshotCommand } from './commands/restoreSnapshot';
+import { startInstance as startInstanceCommand } from './commands/startInstance';
+import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
+import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
+import { takeSnapshot as takeSnapshotCommand } from './commands/takeSnapshot';
+import { isImageAlreadyDownloaded as isImageAlreadyDownloadedCommand } from './utils/isImageAlreadyDownloaded';
+import { setupSSH as setupSSHCommand } from './utils/setupSSH';
 import {
 	connectToInstanceViaSSH as connectToInstanceViaSSHCommand,
 	countManagedSSHEntries as countManagedSSHEntriesCommand,
+	hasManagedSSHKeyPair as hasManagedSSHKeyPairCommand,
 	openRemoteSSHView as openRemoteSSHViewCommand,
 	pruneOrphanedSSHEntries as pruneOrphanedSSHEntriesCommand,
 	removeManagedSSHKeyPair as removeManagedSSHKeyPairCommand,
@@ -9,26 +26,9 @@ import {
 	setupSSHForInstance as setupSSHForInstanceCommand,
 } from './utils/sshConfig';
 
-// Instance commands — imported for the MultipassService class
-import { getInstanceLists as getInstanceListsCommand, getInstances as getInstancesCommand } from './commands/listInstances';
-import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
-import { findImages as findImagesCommand } from './commands/findImages';
-import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
-import { instanceNameExists as instanceNameExistsCommand } from './commands/launch/instanceNameExists';
-import { isImageAlreadyDownloaded as isImageAlreadyDownloadedCommand } from './utils/isImageAlreadyDownloaded';
-import { recoverInstance as recoverInstanceCommand } from './commands/recoverInstance';
-import { setupSSH as setupSSHCommand } from './utils/setupSSH';
-import { startInstance as startInstanceCommand } from './commands/startInstance';
-import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
-import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
-import { listSnapshots as listSnapshotsCommand } from './commands/listSnapshots';
-import { takeSnapshot as takeSnapshotCommand } from './commands/takeSnapshot';
-import { restoreSnapshot as restoreSnapshotCommand } from './commands/restoreSnapshot';
-import { deleteSnapshot as deleteSnapshotCommand } from './commands/deleteSnapshot';
-
 // Re-export types consumed by the webview
-export type { InstanceLists } from './commands/listInstances';
 export type { MultipassInstanceInfo } from './commands/getInstanceInfo';
+export type { InstanceLists } from './commands/listInstances';
 export type { MultipassSnapshot } from './commands/listSnapshots';
 
 // Re-export functions consumed directly (not via MultipassService)
@@ -55,6 +55,7 @@ export class MultipassService {
 	public static removeSSHConfigForInstance = removeSSHConfigForInstanceCommand;
 	public static connectToInstanceViaSSH = connectToInstanceViaSSHCommand;
 	public static countManagedSSHEntries = countManagedSSHEntriesCommand;
+	public static hasManagedSSHKeyPair = hasManagedSSHKeyPairCommand;
 	public static removeManagedSSHKeyPair = removeManagedSSHKeyPairCommand;
 	public static pruneOrphanedSSHEntries = pruneOrphanedSSHEntriesCommand;
 	public static openRemoteSSHView = openRemoteSSHViewCommand;

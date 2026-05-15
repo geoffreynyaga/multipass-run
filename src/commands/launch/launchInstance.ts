@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 
 import { runMultipassCommand, spawnMultipassCommand } from '../../utils/multipassExecutable';
 

@@ -1,7 +1,5 @@
 import * as assert from 'assert';
-import * as vscode from 'vscode';
 
-import { instanceNameExists } from '../../commands/launch/instanceNameExists';
 
 suite('Instance Name Tests', () => {
 	suite('Instance Name Validation', () => {
