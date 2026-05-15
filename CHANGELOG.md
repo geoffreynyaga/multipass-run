@@ -26,6 +26,20 @@
 - Mount entries now use the correct host source / instance target
   ordering (multipass JSON keys mounts by target path)
 
+### Known issues
+- **macOS empty mount.** Classic mounts use Multipass's `sshfs_server`,
+  which macOS TCC blocks from reading user folders unless Full Disk
+  Access is granted. The mount attaches but `ls` inside the VM returns
+  nothing. Grant Full Disk Access to both
+  `/Library/Application Support/com.canonical.multipass/bin/multipassd`
+  and `/Library/Application Support/com.canonical.multipass/bin/sshfs_server`,
+  then restart the daemon:
+  ```bash
+  sudo launchctl kickstart -k system/com.canonical.multipassd
+  ```
+  Unmount and remount the folder afterwards. The sidebar Mounts section
+  links to the Full Disk Access pane.
+
 ## [0.0.4] - 2026-05-05
 
 ### Added
