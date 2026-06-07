@@ -1,4 +1,4 @@
-import { exec, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -8,10 +8,9 @@ import * as vscode from 'vscode';
 import {
 	SSH_GUEST_EXEC_TIMEOUT_MS,
 	SSH_KEYGEN_TIMEOUT_MS,
-	SSH_MULTIPASS_VERSION_TIMEOUT_MS,
 	SSH_PROBE_TIMEOUT_MS,
 } from '../config/timings';
-import { MULTIPASS_PATHS } from './constants';
+import { findMultipassExecutable } from './multipassExecutable';
 import {
 	addBlock,
 	buildHostBody,
@@ -29,7 +28,6 @@ import {
 	resolveKeyPaths,
 } from './sshKeyPath';
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 export interface SSHSetupResult {
@@ -58,12 +56,6 @@ function sshConfigPath(): string {
 	return path.join(sshDir(), 'config');
 }
 
-/**
- * Resolves the multipass binary by running `<candidate> version` through a
- * shell (which performs PATH lookup) and taking the first one that succeeds.
- * Mirrors the loop pattern used elsewhere in the codebase so we behave the
- * same way as `multipass list` and friends.
- */
 // Child_process timeouts only fire SIGTERM at the process; on a hung
 // `multipass exec` that's enough to unblock us. Promisified `exec`/`execFile`
 // reject with a TimedOut-like error in that case. We rewrap so the error
@@ -98,28 +90,6 @@ function withStepLabel<T>(promise: Promise<T>, label: string, timeoutMs: number)
 		}
 		throw new Error(`${label}: ${String(err)}`);
 	});
-}
-
-async function findMultipassPath(): Promise<string> {
-	let lastError: unknown = null;
-	for (const mp of MULTIPASS_PATHS) {
-		try {
-			await withStepLabel(
-				execAsync(`${mp} version`, { timeout: SSH_MULTIPASS_VERSION_TIMEOUT_MS }),
-				`multipass version (${mp})`,
-				SSH_MULTIPASS_VERSION_TIMEOUT_MS
-			);
-			return mp;
-		} catch (err) {
-			lastError = err;
-			continue;
-		}
-	}
-	const message = lastError instanceof Error ? lastError.message : 'unknown error';
-	throw new Error(
-		`Multipass command not found (last error: ${message}). ` +
-			`Try restarting VS Code from a terminal so the shell PATH is inherited.`
-	);
 }
 
 async function ensureSSHKeyPair(): Promise<KeyPaths> {
@@ -228,7 +198,7 @@ export async function setupSSHForInstance(
 		const publicKey = fs.readFileSync(keys.publicKey, 'utf8').trim();
 
 		onStep?.('multipass');
-		const multipassPath = await findMultipassPath();
+		const multipassPath = await findMultipassExecutable();
 
 		onStep?.('guest-dir');
 		await ensureGuestSSHDir(multipassPath, instanceName);
