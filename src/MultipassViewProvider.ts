@@ -23,6 +23,7 @@ import { TerminalManager } from './extension-utils/terminalManager';
 import { MultipassService } from './multipassService';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 import { detectInstallPlan,type InstallPlan } from './utils/installPackageManager';
+import { resetMultipassExecutableCache } from './utils/multipassExecutable';
 import type { FindImagesResult } from './utils/multipassImages';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 import { capabilitiesFromImages } from './utils/multipassVersion';
@@ -584,6 +585,11 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		// Build (or clear) the install plan so the not-installed screen can show
 		// a terminal-first CTA when a package manager is available on the host.
 		if (rawLists.error?.type === 'not-installed') {
+			// The executable resolver caches a bare-'multipass' fallback once it
+			// fails to find a binary. Drop that cache while we're showing the
+			// not-installed screen so the next list attempt re-scans disk and
+			// picks up a binary the user has just installed, without a reload.
+			resetMultipassExecutableCache();
 			try {
 				this._installPlan = await detectInstallPlan();
 			} catch (err) {
