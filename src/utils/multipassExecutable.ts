@@ -98,7 +98,7 @@ function isSnapMultipassPath(executablePath: string): boolean {
 	return process.platform === 'linux' && executablePath === '/snap/bin/multipass';
 }
 
-function shellEscape(arg: string): string {
+export function shellEscape(arg: string): string {
 	return `'${arg.replace(/'/g, `'"'"'`)}'`;
 }
 
