@@ -31,6 +31,12 @@ export async function handleSetupSSHInstance(msg: { instanceName: string }): Pro
 }
 
 export async function handleStartAndShellInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
+	const currentLists = await MultipassService.getInstanceLists();
+	const startingInstance = currentLists.active.find(i => i.name === msg.instanceName);
+	if (startingInstance) {
+		startingInstance.state = 'Starting';
+		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
+	}
 	const result = await MultipassService.startInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is starting...`);
