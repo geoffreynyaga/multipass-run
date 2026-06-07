@@ -7,6 +7,14 @@ export interface MultipassInstance {
 	release: string;
 }
 
+/** Shape of a single entry in `multipass list --format json`. */
+interface RawMultipassInstance {
+	name?: string;
+	state?: string;
+	ipv4?: string[];
+	release?: string;
+}
+
 export interface InstanceLists {
 	active: MultipassInstance[];
 	deleted: MultipassInstance[];
@@ -24,7 +32,7 @@ export async function getInstances(): Promise<MultipassInstance[]> {
 export async function getInstanceLists(): Promise<InstanceLists> {
 	try {
 		let stdout = '';
-		let lastError: any = null;
+		let lastError: unknown = null;
 
 		try {
 			const result = await runMultipassCommand(['list', '--format', 'json']);
@@ -35,11 +43,11 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 
 		if (!stdout) {
 			// Check the error type
-			const errorMessage = lastError?.message || '';
-			
+			const errorMessage = lastError instanceof Error ? lastError.message : '';
+
 			// Check if daemon is not running (socket connection error)
 			const isDaemonNotRunning = errorMessage.includes('cannot connect to the multipass socket') ||
-									   errorMessage.includes('socket') && errorMessage.includes('connect');
+									   (errorMessage.includes('socket') && errorMessage.includes('connect'));
 			
 			if (isDaemonNotRunning) {
 				console.error('Multipass daemon is not running');
@@ -69,8 +77,10 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 						message: 'Multipass is not installed on your system'
 					}
 				};
-			}			console.error('Failed to execute multipass:', lastError);
-			return { 
+			}
+
+			console.error('Failed to execute multipass:', lastError);
+			return {
 				active: [], 
 				deleted: [],
 				error: {
@@ -80,10 +90,10 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 			};
 		}
 
-		const data = JSON.parse(stdout);
+		const data = JSON.parse(stdout) as { list?: RawMultipassInstance[] };
 
 		if (data.list && Array.isArray(data.list)) {
-			const allInstances = data.list.map((instance: any) => ({
+			const allInstances: MultipassInstance[] = data.list.map((instance) => ({
 				name: instance.name || 'Unknown',
 				state: instance.state || 'Unknown',
 				ipv4: instance.ipv4?.[0] || '',
