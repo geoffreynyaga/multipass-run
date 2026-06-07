@@ -7,16 +7,27 @@ jest.mock('child_process', () => {
 	};
 });
 
+jest.mock('fs', () => {
+	const actual = jest.requireActual('fs');
+	return {
+		...actual,
+		existsSync: jest.fn(() => false),
+	};
+});
+
 import * as cp from 'child_process';
+import * as fs from 'fs';
 
 import { pickMultipassFromDisk, resetMultipassExecutableCache, runMultipassCommand } from '../multipassExecutable';
 
 const execFileMock = cp.execFile as unknown as jest.Mock;
+const existsSyncMock = fs.existsSync as unknown as jest.Mock;
 
 beforeEach(() => {
 	jest.restoreAllMocks();
 	resetMultipassExecutableCache();
 	execFileMock.mockReset();
+	existsSyncMock.mockReset();
 });
 
 describe('pickMultipassFromDisk', () => {
@@ -71,44 +82,62 @@ describe('pickMultipassFromDisk', () => {
 
 describe('runMultipassCommand', () => {
 	test('falls back to script when snap multipass returns empty stdout', async () => {
-		execFileMock
-			.mockImplementationOnce((...callArgs: unknown[]) => {
-				const callback = callArgs[callArgs.length - 1] as (
-					err: Error | null,
-					result: { stdout: string; stderr: string }
-				) => void;
-				callback(null, { stdout: '', stderr: '' });
-				return {} as unknown;
-			})
-			.mockImplementationOnce((...callArgs: unknown[]) => {
-				const callback = callArgs[callArgs.length - 1] as (
-					err: Error | null,
-					result: { stdout: string; stderr: string }
-				) => void;
-				callback(null, { stdout: '{"list":[]}', stderr: '' });
-				return {} as unknown;
-			});
+		// The snap script-wrapper only triggers for /snap/bin/multipass on
+		// Linux, so pin both the platform and the on-disk binary; otherwise the
+		// resolver picks up a real /usr/local/bin/multipass and/or a non-Linux
+		// host disables the fallback, and the test only passes on Linux CI.
+		const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+		Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+		existsSyncMock.mockImplementation((p: string) => p === '/snap/bin/multipass');
 
-		const result = await runMultipassCommand(['list', '--format', 'json']);
+		try {
+			execFileMock
+				.mockImplementationOnce((...callArgs: unknown[]) => {
+					const callback = callArgs[callArgs.length - 1] as (
+						err: Error | null,
+						result: { stdout: string; stderr: string }
+					) => void;
+					callback(null, { stdout: '', stderr: '' });
+					return {} as unknown;
+				})
+				.mockImplementationOnce((...callArgs: unknown[]) => {
+					const callback = callArgs[callArgs.length - 1] as (
+						err: Error | null,
+						result: { stdout: string; stderr: string }
+					) => void;
+					callback(null, { stdout: '{"list":[]}', stderr: '' });
+					return {} as unknown;
+				});
 
-		expect(execFileMock).toHaveBeenNthCalledWith(
-			1,
-			'/snap/bin/multipass',
-			['list', '--format', 'json'],
-			expect.objectContaining({ env: expect.any(Object) }),
-			expect.any(Function)
-		);
-		expect(execFileMock).toHaveBeenNthCalledWith(
-			2,
-			'script',
-			['-q', '-c', "'/snap/bin/multipass' 'list' '--format' 'json'", '/dev/null'],
-			expect.objectContaining({ env: expect.any(Object) }),
-			expect.any(Function)
-		);
-		expect(result.stdout).toBe('{"list":[]}');
+			const result = await runMultipassCommand(['list', '--format', 'json']);
+
+			expect(execFileMock).toHaveBeenNthCalledWith(
+				1,
+				'/snap/bin/multipass',
+				['list', '--format', 'json'],
+				expect.objectContaining({ env: expect.any(Object) }),
+				expect.any(Function)
+			);
+			expect(execFileMock).toHaveBeenNthCalledWith(
+				2,
+				'script',
+				['-q', '-c', "'/snap/bin/multipass' 'list' '--format' 'json'", '/dev/null'],
+				expect.objectContaining({ env: expect.any(Object) }),
+				expect.any(Function)
+			);
+			expect(result.stdout).toBe('{"list":[]}');
+		} finally {
+			if (originalPlatform) {
+				Object.defineProperty(process, 'platform', originalPlatform);
+			}
+		}
 	});
 
 	test('does not use script fallback when direct execution returns output', async () => {
+		// A real on-disk hit so the resolver returns directly instead of
+		// dropping into the (unmocked) login-shell lookup.
+		existsSyncMock.mockImplementation((p: string) => p === '/usr/local/bin/multipass');
+
 		execFileMock.mockImplementationOnce((...callArgs: unknown[]) => {
 			const callback = callArgs[callArgs.length - 1] as (
 				err: Error | null,
