@@ -23,21 +23,9 @@ VS Code extension for managing Multipass virtual machine instances from the side
 - Visual Studio Code 1.105.0 or later.
 - Multipass installed and on `PATH`. Verify with `multipass version`.
 
-### Install Multipass
+For Multipass prerequisites and OS-specific installation steps, use the upstream guide:
 
-**macOS** — Download the installer from [multipass.run](https://multipass.run/), or use Homebrew (community-supported):
-
-```bash
-brew install --cask multipass
-```
-
-**Linux** — Install from the Snap Store:
-
-```bash
-sudo snap install multipass
-```
-
-**Windows** — Download the installer from [multipass.run](https://multipass.run/).
+- [Install Multipass](https://documentation.ubuntu.com/multipass/latest/how-to-guides/install-multipass/)
 
 ### Install the extension
 
@@ -55,59 +43,10 @@ code --install-extension multipass-run-0.1.0.vsix
 
 ## How-to guides
 
-### How to create an instance
+For Multipass lifecycle, mounts, snapshots, and cloud-init workflows, use the upstream docs:
 
-1. Click the Multipass icon in the Activity Bar.
-2. Click the **+** button in the toolbar.
-3. Choose one of:
-   - **Default settings** — quick provision.
-   - **Custom configuration** — set name, CPU count, memory (e.g. `1G`), and disk size (e.g. `5G`).
-   - **Cloud-init YAML** — pick a `#cloud-config` file and enter a name.
-
-### How to start, suspend, or stop an instance
-
-Right-click the instance in the sidebar and select the action from the context menu:
-
-- Running → **Stop**, **Pause (Suspend)**.
-- Stopped → **Start**.
-- Suspended → **Resume**.
-
-### How to delete and recover an instance
-
-1. Right-click a stopped or suspended instance and select **Delete Instance**.
-2. The instance moves to the **DELETED INSTANCES** section.
-3. To recover, right-click the deleted instance and select **Recover Instance**.
-
-### How to purge an instance
-
-1. Right-click the deleted instance.
-2. Select **Purge Instance** (shown in red).
-3. Confirm. Purge is irreversible.
-
-### How to mount a host folder
-
-1. Expand the instance in the sidebar.
-2. Click the **+** icon next to the **Mounts** header.
-3. Pick a host folder in the file dialog.
-4. Confirm or edit the target path inside the instance. The default is `/home/ubuntu/<folder-name>`.
-
-Mounts attach on next boot if the instance is stopped. The extension uses classic mounts (SSHFS).
-
-### How to unmount a folder
-
-1. Expand the instance.
-2. Click **Unmount** on the mount row.
-3. Confirm.
-
-### How to take, restore, and delete snapshots
-
-Snapshots require the instance to be **Stopped**.
-
-1. Stop the instance.
-2. Expand it and click the camera icon next to the **Snapshots** header.
-3. Optionally provide a name and comment, then click **Take snapshot**. If unnamed, Multipass assigns `snapshotN`.
-4. To restore, click **Restore** on a snapshot row. The instance's current state is discarded.
-5. To delete, click **Delete** on a snapshot row. Snapshot deletion is permanent.
+- [Multipass how-to guides](https://documentation.ubuntu.com/multipass/latest/how-to-guides/)
+- [Manage instances](https://documentation.ubuntu.com/multipass/latest/how-to-guides/manage-instances/)
 
 ### How to launch with cloud-init
 
