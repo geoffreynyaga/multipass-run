@@ -413,56 +413,52 @@ export async function openRemoteSSHView(): Promise<void> {
  */
 export async function connectToInstanceViaSSH(instanceName: string): Promise<void> {
 	const sshHostName = `multipass-${instanceName}`;
+	console.log(`Attempting to connect to SSH host: ${sshHostName}`);
 
+	// Best-effort: nudge Remote-SSH to re-read the config we just wrote.
 	try {
-		console.log(`Attempting to connect to SSH host: ${sshHostName}`);
+		await vscode.commands.executeCommand('remote-ssh.configureHostsFile');
+		// Give it a moment to process before we trigger the connection.
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	} catch (reloadError) {
+		console.warn('Could not reload SSH config:', reloadError);
+	}
 
-		// First, reload the SSH config to make sure Remote-SSH sees our changes
+	// Try each connection strategy in turn; the first that succeeds wins.
+	const strategies: { label: string; run: () => Thenable<unknown> }[] = [
+		{
+			label: 'remote-ssh.connectToHost',
+			run: () => vscode.commands.executeCommand('remote-ssh.connectToHost', sshHostName),
+		},
+		{
+			label: 'vscode.openFolder (SSH URI)',
+			run: () =>
+				vscode.commands.executeCommand(
+					'vscode.openFolder',
+					vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHostName}/home/ubuntu`),
+					{ forceNewWindow: true }
+				),
+		},
+		{
+			label: 'remote.newWindow',
+			run: () => vscode.commands.executeCommand('remote.newWindow', { authority: `ssh-remote+${sshHostName}` }),
+		},
+	];
+
+	let firstError: string | null = null;
+	for (const strategy of strategies) {
 		try {
-			await vscode.commands.executeCommand('remote-ssh.configureHostsFile');
-			console.log('Triggered SSH config reload');
-			// Give it a moment to process
-			await new Promise((resolve) => setTimeout(resolve, 500));
-		} catch (reloadError) {
-			console.warn('Could not reload SSH config:', reloadError);
-			// Continue anyway
-		}
-
-		// Try to connect using Remote-SSH: Connect to Host command
-		// This opens a new window connected to the host
-		await vscode.commands.executeCommand('remote-ssh.connectToHost', sshHostName);
-		console.log('Successfully triggered remote-ssh.connectToHost command');
-	} catch (error: unknown) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(`remote-ssh.connectToHost failed: ${message}`);
-
-		// Fallback: try opening with SSH URI in a new window
-		try {
-			console.log('Trying fallback: vscode.openFolder with SSH URI');
-			await vscode.commands.executeCommand(
-				'vscode.openFolder',
-				vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHostName}/home/ubuntu`),
-				{ forceNewWindow: true }
-			);
-			console.log('Successfully opened SSH connection with URI');
-		} catch (uriError: unknown) {
-			const uriMessage = uriError instanceof Error ? uriError.message : String(uriError);
-			console.error(`SSH URI connection failed: ${uriMessage}`);
-
-			// Final fallback: try using the Remote Explorer command
-			try {
-				console.log('Trying final fallback: remote.newWindow');
-				await vscode.commands.executeCommand('remote.newWindow', {
-					authority: `ssh-remote+${sshHostName}`,
-				});
-			} catch (fallbackError: unknown) {
-				const fallbackMessage =
-					fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-				console.error(`All connection attempts failed: ${fallbackMessage}`);
-				vscode.window.showErrorMessage(
-					`Failed to connect via Remote-SSH: ${message}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
-				);
-			}
+			await strategy.run();
+			console.log(`Connected via ${strategy.label}`);
+			return;
+		} catch (error: unknown) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(`${strategy.label} failed: ${message}`);
+			firstError ??= message;
 		}
 	}
+
+	vscode.window.showErrorMessage(
+		`Failed to connect via Remote-SSH: ${firstError}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
+	);
 }
