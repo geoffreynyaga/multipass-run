@@ -51,6 +51,12 @@ export async function handleStartAndShellInstance(msg: { instanceName: string },
 }
 
 export async function handleRecoverAndShellInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
+	const currentLists = await MultipassService.getInstanceLists();
+	const recoveringInstance = currentLists.deleted.find(i => i.name === msg.instanceName);
+	if (recoveringInstance) {
+		recoveringInstance.state = 'Recovering';
+		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
+	}
 	const result = await MultipassService.recoverInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is recovering...`);
