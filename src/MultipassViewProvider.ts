@@ -4,6 +4,7 @@ import * as nodePath from 'path';
 import * as vscode from 'vscode';
 
 import { launchInstance } from './commands/launch/launchInstance';
+import { validateInstanceName } from './commands/launch/validation';
 import { mountFolder } from './commands/mountFolder';
 import {
 	INSTANCE_START_MAX_POLL_ATTEMPTS,
@@ -389,8 +390,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			value: suggestVMNameFromFolder(folderName),
 			prompt: 'Name for the new VM',
 			validateInput: async (v) => {
-				if (!v || !/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(v)) {
-					return 'Must start with a letter, end with letter or digit, no spaces';
+				const nameError = validateInstanceName(v);
+				if (nameError) {
+					return nameError;
 				}
 				if (await MultipassService.instanceNameExists(v)) {
 					return `'${v}' already exists`;
@@ -546,8 +548,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			prompt: 'Name for the VM to launch with this cloud-init',
 			placeHolder: 'my-instance',
 			validateInput: async (v) => {
-				if (!v || !/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(v)) {
-					return 'Must start with a letter, end with letter or digit, no spaces';
+				const nameError = validateInstanceName(v);
+				if (nameError) {
+					return nameError;
 				}
 				if (await MultipassService.instanceNameExists(v)) {
 					return `'${v}' already exists`;

@@ -1,12 +1,12 @@
-jest.mock('../../utils/multipassExecutable', () => ({
+jest.mock('../../../utils/multipassExecutable', () => ({
 	runMultipassCommand: jest.fn(),
 	spawnMultipassCommand: jest.fn(),
 }));
 
 import { PassThrough } from 'stream';
 
-import { buildLaunchArgs, parseLaunchedInstanceName } from '../../commands/launch/launchInstance';
-import { runMultipassCommand, spawnMultipassCommand } from '../../utils/multipassExecutable';
+import { runMultipassCommand, spawnMultipassCommand } from '../../../utils/multipassExecutable';
+import { buildLaunchArgs, parseLaunchedInstanceName } from '../launchInstance';
 
 const runMultipassCommandMock = runMultipassCommand as jest.MockedFunction<typeof runMultipassCommand>;
 const spawnMultipassCommandMock = spawnMultipassCommand as jest.MockedFunction<typeof spawnMultipassCommand>;
@@ -75,7 +75,7 @@ describe('launchInstance', () => {
 			stderr: '',
 		});
 
-		const { launchInstance } = await import('../../commands/launch/launchInstance');
+		const { launchInstance } = await import('../launchInstance');
 		const result = await launchInstance();
 
 		expect(runMultipassCommandMock).toHaveBeenCalledWith(['launch']);
@@ -101,7 +101,7 @@ describe('launchInstance', () => {
 
 		spawnMultipassCommandMock.mockResolvedValue(proc);
 
-		const { launchInstance } = await import('../../commands/launch/launchInstance');
+		const { launchInstance } = await import('../launchInstance');
 		const progress = jest.fn();
 		const promise = launchInstance({ onProgress: progress });
 

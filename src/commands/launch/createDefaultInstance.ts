@@ -5,6 +5,7 @@ import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
+import { validateInstanceName } from './validation';
 
 export interface CreateInstanceCallbacks {
 	onInstanceNameSelected?: (name: string) => void;
@@ -28,11 +29,9 @@ export async function createDefaultInstance(
 			prompt: 'Enter a name for the new instance',
 			placeHolder: 'my-instance',
 			validateInput: async (value) => {
-				if (!value || value.trim() === '') {
-					return 'Instance name cannot be empty';
-				}
-				if (!/^[a-zA-Z0-9-_]+$/.test(value)) {
-					return 'Instance name can only contain letters, numbers, hyphens, and underscores';
+				const nameError = validateInstanceName(value);
+				if (nameError) {
+					return nameError;
 				}
 				// Check if instance name already exists
 				const exists = await instanceNameExists(value);

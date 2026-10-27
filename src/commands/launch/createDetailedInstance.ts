@@ -5,6 +5,7 @@ import { buildImageOptions } from '../../utils/multipassImages';
 import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
 import { promptSSHOption } from './promptSSHOption';
+import { validateCpus, validateDisk, validateInstanceName, validateMemory } from './validation';
 
 export interface DetailedInstanceConfig {
 	name: string;
@@ -22,11 +23,9 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		prompt: 'Step 1/5: Enter instance name',
 		placeHolder: 'my-instance',
 		validateInput: async (value) => {
-			if (!value || value.trim() === '') {
-				return 'Instance name cannot be empty';
-			}
-			if (!/^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$/.test(value)) {
-				return 'Name must start with a letter and end with alphanumeric character';
+			const nameError = validateInstanceName(value);
+			if (nameError) {
+				return nameError;
 			}
 			// Check if instance name already exists
 			const exists = await instanceNameExists(value);
@@ -101,13 +100,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		prompt: 'Step 3/5: Number of CPUs',
 		placeHolder: CUSTOM_INSTANCE_DEFAULTS.cpus,
 		value: CUSTOM_INSTANCE_DEFAULTS.cpus,
-		validateInput: (value) => {
-			const num = parseInt(value);
-			if (isNaN(num) || num < 1) {
-				return 'Must be a positive integer (minimum: 1)';
-			}
-			return null;
-		}
+		validateInput: (value) => validateCpus(value) ?? null
 	});
 
 	if (!cpusInput) {
@@ -119,24 +112,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		prompt: `Step 4/5: Memory size (e.g., ${CUSTOM_INSTANCE_DEFAULTS.memory}, 512M, 2048M)`,
 		placeHolder: CUSTOM_INSTANCE_DEFAULTS.memory,
 		value: CUSTOM_INSTANCE_DEFAULTS.memory,
-		validateInput: (value) => {
-			if (!/^\d+(\.\d+)?[KMG]$/.test(value)) {
-				return 'Format: number with K, M, or G suffix (e.g., 1G, 512M)';
-			}
-			// Validate minimum of 128M
-			const match = value.match(/^(\d+(?:\.\d+)?)([KMG])$/);
-			if (match) {
-				const amount = parseFloat(match[1]);
-				const unit = match[2];
-				const bytes = unit === 'G' ? amount * 1024 * 1024 * 1024 :
-				             unit === 'M' ? amount * 1024 * 1024 :
-				             amount * 1024;
-				if (bytes < 128 * 1024 * 1024) {
-					return 'Minimum memory: 128M';
-				}
-			}
-			return null;
-		}
+		validateInput: (value) => validateMemory(value) ?? null
 	});
 
 	if (!memoryInput) {
@@ -148,24 +124,7 @@ export async function createDetailedInstance(): Promise<DetailedInstanceConfig |
 		prompt: `Step 5/5: Disk size (e.g., ${CUSTOM_INSTANCE_DEFAULTS.disk}, 2048M)`,
 		placeHolder: CUSTOM_INSTANCE_DEFAULTS.disk,
 		value: CUSTOM_INSTANCE_DEFAULTS.disk,
-		validateInput: (value) => {
-			if (!/^\d+(\.\d+)?[KMG]$/.test(value)) {
-				return 'Format: number with K, M, or G suffix (e.g., 5G, 2048M)';
-			}
-			// Validate minimum of 512M
-			const match = value.match(/^(\d+(?:\.\d+)?)([KMG])$/);
-			if (match) {
-				const amount = parseFloat(match[1]);
-				const unit = match[2];
-				const bytes = unit === 'G' ? amount * 1024 * 1024 * 1024 :
-				             unit === 'M' ? amount * 1024 * 1024 :
-				             amount * 1024;
-				if (bytes < 512 * 1024 * 1024) {
-					return 'Minimum disk: 512M';
-				}
-			}
-			return null;
-		}
+		validateInput: (value) => validateDisk(value) ?? null
 	});
 
 	if (!diskInput) {

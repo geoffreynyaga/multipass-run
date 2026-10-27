@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { launchInstance } from '../commands/launch/launchInstance';
+import { validateCpus, validateDisk, validateInstanceName, validateMemory } from '../commands/launch/validation';
 import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { setupSSHConnection } from '../extension-utils/sshSetup';
@@ -8,6 +9,10 @@ import { MultipassService } from '../multipassService';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
 import type { HandlerContext, LaunchInlineConfig } from './context';
+
+function prefixError(label: string, error: string | undefined): string | undefined {
+	return error && `${label}: ${error}`;
+}
 
 export async function handleLaunchInstance(_msg: unknown, ctx: HandlerContext): Promise<void> {
 	await ctx.createDefaultInstance();
@@ -21,8 +26,9 @@ export async function handleLaunchInlineInstance(msg: { config: LaunchInlineConf
 	const config = msg.config;
 	const instanceName = config.name?.trim();
 
-	if (instanceName && !/^[a-zA-Z0-9-_]+$/.test(instanceName)) {
-		vscode.window.showErrorMessage('Instance name can only contain letters, numbers, hyphens, and underscores.');
+	const nameError = instanceName ? validateInstanceName(instanceName) : undefined;
+	if (nameError) {
+		vscode.window.showErrorMessage(nameError);
 		return;
 	}
 	if (instanceName && await MultipassService.instanceNameExists(instanceName)) {
@@ -50,16 +56,13 @@ export async function handleLaunchInlineInstance(msg: { config: LaunchInlineConf
 
 	const isCustom = config.mode === 'custom';
 	if (isCustom) {
-		const cpuCount = parseInt(config.cpus || '', 10);
-		if (isNaN(cpuCount) || cpuCount < 1) {
-			vscode.window.showErrorMessage('CPU must be a positive integer.');
+		const resourceError =
+			prefixError('CPU', validateCpus(config.cpus ?? '')) ??
+			prefixError('Memory', validateMemory(config.memory ?? '')) ??
+			prefixError('Disk', validateDisk(config.disk ?? ''));
+		if (resourceError) {
+			vscode.window.showErrorMessage(resourceError);
 			return;
-		}
-		for (const [label, value] of [['Memory', config.memory], ['Disk', config.disk]] as const) {
-			if (!value || !/^\d+(\.\d+)?[KMG]$/.test(value)) {
-				vscode.window.showErrorMessage(`${label} must use a size like 2G or 512M.`);
-				return;
-			}
 		}
 	}
 
