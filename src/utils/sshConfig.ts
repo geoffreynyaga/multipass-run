@@ -1,4 +1,4 @@
-import { exec, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -8,10 +8,9 @@ import * as vscode from 'vscode';
 import {
 	SSH_GUEST_EXEC_TIMEOUT_MS,
 	SSH_KEYGEN_TIMEOUT_MS,
-	SSH_MULTIPASS_VERSION_TIMEOUT_MS,
 	SSH_PROBE_TIMEOUT_MS,
 } from '../config/timings';
-import { MULTIPASS_PATHS } from './constants';
+import { findMultipassExecutable } from './multipassExecutable';
 import {
 	addBlock,
 	buildHostBody,
@@ -29,7 +28,6 @@ import {
 	resolveKeyPaths,
 } from './sshKeyPath';
 
-const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 export interface SSHSetupResult {
@@ -58,12 +56,6 @@ function sshConfigPath(): string {
 	return path.join(sshDir(), 'config');
 }
 
-/**
- * Resolves the multipass binary by running `<candidate> version` through a
- * shell (which performs PATH lookup) and taking the first one that succeeds.
- * Mirrors the loop pattern used elsewhere in the codebase so we behave the
- * same way as `multipass list` and friends.
- */
 // Child_process timeouts only fire SIGTERM at the process; on a hung
 // `multipass exec` that's enough to unblock us. Promisified `exec`/`execFile`
 // reject with a TimedOut-like error in that case. We rewrap so the error
@@ -98,28 +90,6 @@ function withStepLabel<T>(promise: Promise<T>, label: string, timeoutMs: number)
 		}
 		throw new Error(`${label}: ${String(err)}`);
 	});
-}
-
-async function findMultipassPath(): Promise<string> {
-	let lastError: unknown = null;
-	for (const mp of MULTIPASS_PATHS) {
-		try {
-			await withStepLabel(
-				execAsync(`${mp} version`, { timeout: SSH_MULTIPASS_VERSION_TIMEOUT_MS }),
-				`multipass version (${mp})`,
-				SSH_MULTIPASS_VERSION_TIMEOUT_MS
-			);
-			return mp;
-		} catch (err) {
-			lastError = err;
-			continue;
-		}
-	}
-	const message = lastError instanceof Error ? lastError.message : 'unknown error';
-	throw new Error(
-		`Multipass command not found (last error: ${message}). ` +
-			`Try restarting VS Code from a terminal so the shell PATH is inherited.`
-	);
 }
 
 async function ensureSSHKeyPair(): Promise<KeyPaths> {
@@ -228,7 +198,7 @@ export async function setupSSHForInstance(
 		const publicKey = fs.readFileSync(keys.publicKey, 'utf8').trim();
 
 		onStep?.('multipass');
-		const multipassPath = await findMultipassPath();
+		const multipassPath = await findMultipassExecutable();
 
 		onStep?.('guest-dir');
 		await ensureGuestSSHDir(multipassPath, instanceName);
@@ -443,56 +413,52 @@ export async function openRemoteSSHView(): Promise<void> {
  */
 export async function connectToInstanceViaSSH(instanceName: string): Promise<void> {
 	const sshHostName = `multipass-${instanceName}`;
+	console.log(`Attempting to connect to SSH host: ${sshHostName}`);
 
+	// Best-effort: nudge Remote-SSH to re-read the config we just wrote.
 	try {
-		console.log(`Attempting to connect to SSH host: ${sshHostName}`);
+		await vscode.commands.executeCommand('remote-ssh.configureHostsFile');
+		// Give it a moment to process before we trigger the connection.
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	} catch (reloadError) {
+		console.warn('Could not reload SSH config:', reloadError);
+	}
 
-		// First, reload the SSH config to make sure Remote-SSH sees our changes
+	// Try each connection strategy in turn; the first that succeeds wins.
+	const strategies: { label: string; run: () => Thenable<unknown> }[] = [
+		{
+			label: 'remote-ssh.connectToHost',
+			run: () => vscode.commands.executeCommand('remote-ssh.connectToHost', sshHostName),
+		},
+		{
+			label: 'vscode.openFolder (SSH URI)',
+			run: () =>
+				vscode.commands.executeCommand(
+					'vscode.openFolder',
+					vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHostName}/home/ubuntu`),
+					{ forceNewWindow: true }
+				),
+		},
+		{
+			label: 'remote.newWindow',
+			run: () => vscode.commands.executeCommand('remote.newWindow', { authority: `ssh-remote+${sshHostName}` }),
+		},
+	];
+
+	let firstError: string | null = null;
+	for (const strategy of strategies) {
 		try {
-			await vscode.commands.executeCommand('remote-ssh.configureHostsFile');
-			console.log('Triggered SSH config reload');
-			// Give it a moment to process
-			await new Promise((resolve) => setTimeout(resolve, 500));
-		} catch (reloadError) {
-			console.warn('Could not reload SSH config:', reloadError);
-			// Continue anyway
-		}
-
-		// Try to connect using Remote-SSH: Connect to Host command
-		// This opens a new window connected to the host
-		await vscode.commands.executeCommand('remote-ssh.connectToHost', sshHostName);
-		console.log('Successfully triggered remote-ssh.connectToHost command');
-	} catch (error: unknown) {
-		const message = error instanceof Error ? error.message : String(error);
-		console.error(`remote-ssh.connectToHost failed: ${message}`);
-
-		// Fallback: try opening with SSH URI in a new window
-		try {
-			console.log('Trying fallback: vscode.openFolder with SSH URI');
-			await vscode.commands.executeCommand(
-				'vscode.openFolder',
-				vscode.Uri.parse(`vscode-remote://ssh-remote+${sshHostName}/home/ubuntu`),
-				{ forceNewWindow: true }
-			);
-			console.log('Successfully opened SSH connection with URI');
-		} catch (uriError: unknown) {
-			const uriMessage = uriError instanceof Error ? uriError.message : String(uriError);
-			console.error(`SSH URI connection failed: ${uriMessage}`);
-
-			// Final fallback: try using the Remote Explorer command
-			try {
-				console.log('Trying final fallback: remote.newWindow');
-				await vscode.commands.executeCommand('remote.newWindow', {
-					authority: `ssh-remote+${sshHostName}`,
-				});
-			} catch (fallbackError: unknown) {
-				const fallbackMessage =
-					fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-				console.error(`All connection attempts failed: ${fallbackMessage}`);
-				vscode.window.showErrorMessage(
-					`Failed to connect via Remote-SSH: ${message}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
-				);
-			}
+			await strategy.run();
+			console.log(`Connected via ${strategy.label}`);
+			return;
+		} catch (error: unknown) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error(`${strategy.label} failed: ${message}`);
+			firstError ??= message;
 		}
 	}
+
+	vscode.window.showErrorMessage(
+		`Failed to connect via Remote-SSH: ${firstError}\n\nPlease try connecting manually from the Remote-SSH extension panel using host: ${sshHostName}`
+	);
 }

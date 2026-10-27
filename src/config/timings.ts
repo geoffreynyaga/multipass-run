@@ -40,7 +40,6 @@ export const SSH_SETUP_MAX_POLL_ATTEMPTS = 90;
 // which freezes the progress notification. Failing each step in tens of
 // seconds surfaces a real error toast the user can act on.
 export const SSH_KEYGEN_TIMEOUT_MS = 15000;
-export const SSH_MULTIPASS_VERSION_TIMEOUT_MS = 5000;
 export const SSH_GUEST_EXEC_TIMEOUT_MS = 30000;
 export const SSH_PROBE_TIMEOUT_MS = 15000;
 
