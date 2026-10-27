@@ -23,7 +23,6 @@
 		"dist",
 		"**/*.spec.ts",
 		"**/*.spec.tsx",
-		"src/test/jest-mocks/**",
-		"src/extension-utils/__tests__/**"
+		"src/test/jest-mocks/**"
 	]
 }

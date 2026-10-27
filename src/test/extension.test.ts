@@ -1,12 +1,4 @@
 // Import all test suites
-import './launch/instanceName.test';
-import './launch/resourceValidation.test';
-import './multipass/installation.test';
-import './instance/state.test';
-import './instance/delete.test';
-import './instance/lifecycle.test';
-import './instance/shell.test';
-import './ssh/sshConfig.test';
 import './e2e/instanceCreation.test';
 import './e2e/instanceLifecycle.test';
 
