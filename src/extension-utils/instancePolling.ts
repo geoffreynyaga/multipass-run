@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
+import { getInstances } from '../commands/listInstances';
 import { INSTANCE_STATE_MAX_POLL_ATTEMPTS, INSTANCE_STATE_POLL_INTERVAL_MS } from '../config/timings';
-import { MultipassService } from '../multipassService';
 
 /**
  * Poll an instance's status until it's running or max attempts reached
@@ -18,7 +18,7 @@ export async function pollInstanceStatus(
 	let attempts = 0;
 	const pollInterval = setInterval(async () => {
 		attempts++;
-		const instances = await MultipassService.getInstances();
+		const instances = await getInstances();
 		const instance = instances.find(i => i.name === instanceName);
 
 		if (instance && instance.state.toLowerCase() === 'running') {

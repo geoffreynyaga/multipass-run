@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { InstanceLists } from './multipassService';
+import type { InstanceLists } from './commands/listInstances';
 import type { InstallPlan } from './utils/installPackageManager';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 

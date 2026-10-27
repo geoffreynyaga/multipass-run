@@ -1,6 +1,9 @@
 import * as assert from 'assert';
 
-import { MultipassService } from '../../multipassService';
+import { instanceNameExists } from '../../commands/launch/instanceNameExists';
+import { getInstanceLists, getInstances } from '../../commands/listInstances';
+import { isImageAlreadyDownloaded } from '../../utils/isImageAlreadyDownloaded';
+import { findImages } from '../../utils/multipassFind';
 
 /**
  * End-to-End tests for instance creation flow
@@ -12,7 +15,7 @@ suite('E2E: Instance Creation', () => {
 			this.timeout(10000); // Increase timeout for network operations
 
 			try {
-				const images = await MultipassService.findImages();
+				const images = await findImages();
 
 				if (!images) {
 					this.skip(); // Skip if can't fetch images (Multipass not installed)
@@ -26,7 +29,7 @@ suite('E2E: Instance Creation', () => {
 					const firstImageKey = Object.keys(images.images)[0];
 
 					// Test the isImageAlreadyDownloaded function
-					const isCached = await MultipassService.isImageAlreadyDownloaded(firstImageKey);
+					const isCached = await isImageAlreadyDownloaded(firstImageKey);
 
 					// isCached should be a boolean
 					assert.strictEqual(typeof isCached, 'boolean', 'Should return boolean for cache status');
@@ -71,16 +74,16 @@ suite('E2E: Instance Creation', () => {
 			this.timeout(10000);
 
 			try {
-				const instances = await MultipassService.getInstances();
+				const instances = await getInstances();
 
 				if (instances.length > 0) {
 					const existingName = instances[0].name;
-					const exists = await MultipassService.instanceNameExists(existingName);
+					const exists = await instanceNameExists(existingName);
 
 					assert.strictEqual(exists, true, 'Should detect existing instance name');
 				} else {
 					// No instances, test with non-existent name
-					const exists = await MultipassService.instanceNameExists('non-existent-instance-12345');
+					const exists = await instanceNameExists('non-existent-instance-12345');
 					assert.strictEqual(exists, false, 'Non-existent instance should return false');
 				}
 			} catch (error: any) {
@@ -96,12 +99,12 @@ suite('E2E: Instance Creation', () => {
 			this.timeout(10000);
 
 			try {
-				const instances = await MultipassService.getInstances();
+				const instances = await getInstances();
 
 				if (instances.length > 0) {
 					const existingName = instances[0].name;
 					const upperCaseName = existingName.toUpperCase();
-					const exists = await MultipassService.instanceNameExists(upperCaseName);
+					const exists = await instanceNameExists(upperCaseName);
 
 					// Should detect as existing even with different case
 					assert.strictEqual(exists, true, 'Should detect instance name regardless of case');
@@ -121,7 +124,7 @@ suite('E2E: Instance Creation', () => {
 			this.timeout(10000);
 
 			try {
-				const lists = await MultipassService.getInstanceLists();
+				const lists = await getInstanceLists();
 
 				assert.ok(lists, 'Should return instance lists');
 				assert.ok(Array.isArray(lists.active), 'Active list should be an array');
@@ -139,7 +142,7 @@ suite('E2E: Instance Creation', () => {
 			this.timeout(10000);
 
 			try {
-				const lists = await MultipassService.getInstanceLists();
+				const lists = await getInstanceLists();
 
 				// Should handle empty lists gracefully
 				if (lists.active.length === 0 && lists.deleted.length === 0) {

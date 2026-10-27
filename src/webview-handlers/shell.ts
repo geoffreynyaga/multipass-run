@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 
+import { getInstanceLists } from '../commands/listInstances';
+import { recoverInstance } from '../commands/recoverInstance';
+import { startInstance } from '../commands/startInstance';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { setupSSHConnection } from '../extension-utils/sshSetup';
-import { MultipassService } from '../multipassService';
 import { findMultipassExecutable, shellEscape } from '../utils/multipassExecutable';
 import type { HandlerContext } from './context';
 
@@ -31,13 +33,13 @@ export async function handleSetupSSHInstance(msg: { instanceName: string }): Pro
 }
 
 export async function handleStartAndShellInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const startingInstance = currentLists.active.find(i => i.name === msg.instanceName);
 	if (startingInstance) {
 		startingInstance.state = 'Starting';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.startInstance(msg.instanceName);
+	const result = await startInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is starting...`);
 		setTimeout(() => {
@@ -51,17 +53,17 @@ export async function handleStartAndShellInstance(msg: { instanceName: string },
 }
 
 export async function handleRecoverAndShellInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const recoveringInstance = currentLists.deleted.find(i => i.name === msg.instanceName);
 	if (recoveringInstance) {
 		recoveringInstance.state = 'Recovering';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.recoverInstance(msg.instanceName);
+	const result = await recoverInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is recovering...`);
 		setTimeout(async () => {
-			const startResult = await MultipassService.startInstance(msg.instanceName);
+			const startResult = await startInstance(msg.instanceName);
 			if (startResult.success) {
 				setTimeout(() => {
 					void openShellTerminal(msg.instanceName, ctx);

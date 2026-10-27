@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 
+import { getInstances } from '../commands/listInstances';
 import { SSH_SETUP_MAX_POLL_ATTEMPTS, SSH_SETUP_POLL_INTERVAL_MS } from '../config/timings';
-import { MultipassService } from '../multipassService';
 import type { SSHSetupStep } from '../utils/sshConfig';
+import { connectToInstanceViaSSH, openRemoteSSHView, setupSSHForInstance } from '../utils/sshConfig';
 
 const STEP_LABELS: Record<SSHSetupStep, string> = {
 	'keypair':      'Generating SSH key pair...',
@@ -53,7 +54,7 @@ export async function setupSSHConnection(
 		vscode.window.showInformationMessage(`Waiting for instance '${instanceName}' to be ready...`);
 
 		while (attempts < maxAttempts) {
-			const instances = await MultipassService.getInstances();
+			const instances = await getInstances();
 			const instance = instances.find(i => i.name === instanceName);
 
 			if (instance && instance.state.toLowerCase() === 'running' && instance.ipv4) {
@@ -83,7 +84,7 @@ export async function setupSSHConnection(
 			},
 			async (progress) => {
 				progress.report({ message: `Reached ${instanceIP}, starting setup...` });
-				return await MultipassService.setupSSHForInstance(instanceName, instanceIP, (step) => {
+				return await setupSSHForInstance(instanceName, instanceIP, (step) => {
 					progress.report({ message: STEP_LABELS[step] });
 				});
 			}
@@ -102,9 +103,9 @@ export async function setupSSHConnection(
 			);
 
 			if (selection === 'Connect now') {
-				await MultipassService.connectToInstanceViaSSH(instanceName);
+				await connectToInstanceViaSSH(instanceName);
 			} else if (selection === 'Open Remote-SSH View') {
-				await MultipassService.openRemoteSSHView();
+				await openRemoteSSHView();
 			} else {
 				// Cancel or Esc — notify caller so it can redirect focus
 				opts?.onCancel?.();

@@ -1,6 +1,10 @@
 import * as assert from 'assert';
 
-import { MultipassService } from '../../multipassService';
+import { deleteInstance } from '../../commands/deleteInstance';
+import { getInstanceInfo } from '../../commands/getInstanceInfo';
+import { getInstanceLists, getInstances } from '../../commands/listInstances';
+import { isImageAlreadyDownloaded } from '../../utils/isImageAlreadyDownloaded';
+import { findImages } from '../../utils/multipassFind';
 
 /**
  * End-to-End tests for instance lifecycle operations
@@ -14,7 +18,7 @@ suite('E2E: Instance Lifecycle', () => {
 		// Cleanup: try to delete test instance if it was created
 		if (testInstanceName) {
 			try {
-				await MultipassService.deleteInstance(testInstanceName, true); // purge
+				await deleteInstance(testInstanceName, true); // purge
 			} catch (error) {
 				// Ignore cleanup errors
 				console.log('Cleanup error (can be ignored):', error);
@@ -27,7 +31,7 @@ suite('E2E: Instance Lifecycle', () => {
 			this.timeout(10000);
 
 			try {
-				const lists = await MultipassService.getInstanceLists();
+				const lists = await getInstanceLists();
 				
 				// Verify structure
 				assert.ok(Array.isArray(lists.active), 'Should have active instances array');
@@ -52,11 +56,11 @@ suite('E2E: Instance Lifecycle', () => {
 			this.timeout(10000);
 
 			try {
-				const instances = await MultipassService.getInstances();
+				const instances = await getInstances();
 				
 				if (instances.length > 0) {
 					const instanceName = instances[0].name;
-					const info = await MultipassService.getInstanceInfo(instanceName);
+					const info = await getInstanceInfo(instanceName);
 					
 					assert.ok(info, 'Should return instance info');
 					assert.strictEqual(info.name, instanceName, 'Info should match instance name');
@@ -152,7 +156,7 @@ suite('E2E: Instance Lifecycle', () => {
 			this.timeout(10000);
 
 			try {
-				const images = await MultipassService.findImages();
+				const images = await findImages();
 				
 				if (!images) {
 					this.skip(); // Skip if can't fetch images
@@ -188,11 +192,11 @@ suite('E2E: Instance Lifecycle', () => {
 			this.timeout(10000);
 
 			try {
-				const images = await MultipassService.findImages();
+				const images = await findImages();
 				
 				if (images && Object.keys(images.images).length > 0) {
 					const imageKey = Object.keys(images.images)[0];
-					const isCached = await MultipassService.isImageAlreadyDownloaded(imageKey);
+					const isCached = await isImageAlreadyDownloaded(imageKey);
 					
 					// Should return a boolean
 					assert.strictEqual(typeof isCached, 'boolean', 'Cache status should be boolean');

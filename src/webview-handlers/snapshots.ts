@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
 
-import { MultipassService } from '../multipassService';
+import { deleteSnapshot } from '../commands/deleteSnapshot';
+import { listSnapshots } from '../commands/listSnapshots';
+import { restoreSnapshot } from '../commands/restoreSnapshot';
+import { takeSnapshot } from '../commands/takeSnapshot';
 import type { HandlerContext } from './context';
 
 export async function handleGetSnapshots(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const snapshots = await MultipassService.listSnapshots(msg.instanceName);
+	const snapshots = await listSnapshots(msg.instanceName);
 	ctx.postMessage({ command: 'snapshots', instanceName: msg.instanceName, snapshots });
 }
 
@@ -12,7 +15,7 @@ export async function handleTakeSnapshot(
 	msg: { instanceName: string; name?: string; comment?: string },
 	ctx: HandlerContext
 ): Promise<void> {
-	const result = await MultipassService.takeSnapshot(msg.instanceName, {
+	const result = await takeSnapshot(msg.instanceName, {
 		name: msg.name,
 		comment: msg.comment,
 	});
@@ -20,7 +23,7 @@ export async function handleTakeSnapshot(
 		vscode.window.showInformationMessage(
 			`Snapshot '${result.snapshotName || 'created'}' for '${msg.instanceName}'`
 		);
-		const snapshots = await MultipassService.listSnapshots(msg.instanceName);
+		const snapshots = await listSnapshots(msg.instanceName);
 		ctx.postMessage({ command: 'snapshots', instanceName: msg.instanceName, snapshots });
 	} else {
 		vscode.window.showErrorMessage(`Failed to take snapshot: ${result.error}`);
@@ -54,7 +57,7 @@ export async function handleRestoreSnapshot(
 		});
 		return;
 	}
-	const result = await MultipassService.restoreSnapshot(msg.instanceName, msg.snapshotName);
+	const result = await restoreSnapshot(msg.instanceName, msg.snapshotName);
 	if (result.success) {
 		vscode.window.showInformationMessage(
 			`Restored '${msg.instanceName}' to '${msg.snapshotName}'`
@@ -93,10 +96,10 @@ export async function handleDeleteSnapshot(
 		});
 		return;
 	}
-	const result = await MultipassService.deleteSnapshot(msg.instanceName, msg.snapshotName);
+	const result = await deleteSnapshot(msg.instanceName, msg.snapshotName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Snapshot '${msg.snapshotName}' deleted`);
-		const snapshots = await MultipassService.listSnapshots(msg.instanceName);
+		const snapshots = await listSnapshots(msg.instanceName);
 		ctx.postMessage({ command: 'snapshots', instanceName: msg.instanceName, snapshots });
 	} else {
 		vscode.window.showErrorMessage(`Failed to delete snapshot: ${result.error}`);
