@@ -18,7 +18,12 @@ jest.mock('fs', () => {
 import * as cp from 'child_process';
 import * as fs from 'fs';
 
-import { pickMultipassFromDisk, resetMultipassExecutableCache, runMultipassCommand } from '../multipassExecutable';
+import {
+	pickMultipassFromDisk,
+	resetMultipassExecutableCache,
+	runMultipassAction,
+	runMultipassCommand,
+} from '../multipassExecutable';
 
 const execFileMock = cp.execFile as unknown as jest.Mock;
 const existsSyncMock = fs.existsSync as unknown as jest.Mock;
@@ -151,5 +156,73 @@ describe('runMultipassCommand', () => {
 
 		expect(execFileMock).toHaveBeenCalledTimes(1);
 		expect(result.stdout).toContain('vm');
+	});
+});
+
+describe('runMultipassAction', () => {
+	const macPkgPath = '/Library/Application Support/com.canonical.multipass/bin/multipass';
+
+	function respond(err: Error | null, stdout = ''): void {
+		execFileMock.mockImplementationOnce((...callArgs: unknown[]) => {
+			const callback = callArgs[callArgs.length - 1] as (
+				err: Error | null,
+				result: { stdout: string; stderr: string }
+			) => void;
+			callback(err, { stdout, stderr: '' });
+			return {} as unknown;
+		});
+	}
+
+	test('passes a path with spaces and each argument unquoted to execFile', async () => {
+		existsSyncMock.mockImplementation((p: string) => p === macPkgPath);
+		respond(null);
+
+		const result = await runMultipassAction(['restore', '--destructive', 'vm.snap one'], 'fallback');
+
+		expect(result).toEqual({ success: true });
+		expect(execFileMock).toHaveBeenCalledTimes(1);
+		expect(execFileMock).toHaveBeenCalledWith(
+			macPkgPath,
+			['restore', '--destructive', 'vm.snap one'],
+			expect.objectContaining({ env: expect.any(Object) }),
+			expect.any(Function)
+		);
+	});
+
+	test('runs snap multipass once even when stdout is empty', async () => {
+		const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+		Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+		existsSyncMock.mockImplementation((p: string) => p === '/snap/bin/multipass');
+		respond(null, '');
+
+		try {
+			await runMultipassAction(['delete', '--purge', 'vm.snap'], 'fallback');
+			expect(execFileMock).toHaveBeenCalledTimes(1);
+		} finally {
+			if (originalPlatform) {
+				Object.defineProperty(process, 'platform', originalPlatform);
+			}
+		}
+	});
+
+	test('returns the CLI stderr as the error', async () => {
+		jest.spyOn(console, 'error').mockImplementation(() => undefined);
+		existsSyncMock.mockImplementation((p: string) => p === '/usr/local/bin/multipass');
+		const err = Object.assign(new Error('Command failed'), { stderr: 'instance "vm" does not exist\n' });
+		respond(err);
+
+		const result = await runMultipassAction(['recover', 'vm'], 'fallback');
+
+		expect(result).toEqual({ success: false, error: 'instance "vm" does not exist' });
+	});
+
+	test('uses the fallback message when the error has no text', async () => {
+		jest.spyOn(console, 'error').mockImplementation(() => undefined);
+		existsSyncMock.mockImplementation((p: string) => p === '/usr/local/bin/multipass');
+		respond(Object.assign(new Error(''), { stderr: '' }));
+
+		const result = await runMultipassAction(['purge'], 'Failed to purge instances');
+
+		expect(result).toEqual({ success: false, error: 'Failed to purge instances' });
 	});
 });

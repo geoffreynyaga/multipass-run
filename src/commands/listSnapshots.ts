@@ -1,9 +1,4 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-import { MULTIPASS_PATHS } from '../utils/constants';
-
-const execAsync = promisify(exec);
+import { runMultipassCommand } from '../utils/multipassExecutable';
 
 export interface MultipassSnapshot {
 	name: string;
@@ -18,21 +13,11 @@ export interface MultipassSnapshot {
 }
 
 export async function listSnapshots(instanceName: string): Promise<MultipassSnapshot[]> {
-	let stdout = '';
-	let lastError: any = null;
-
-	for (const multipassPath of MULTIPASS_PATHS) {
-		try {
-			const result = await execAsync(`${multipassPath} info ${instanceName} --snapshots --format json`);
-			stdout = result.stdout;
-			break;
-		} catch (err) {
-			lastError = err;
-		}
-	}
-
-	if (!stdout) {
-		console.error('listSnapshots failed:', lastError);
+	let stdout: string;
+	try {
+		({ stdout } = await runMultipassCommand(['info', instanceName, '--snapshots', '--format', 'json']));
+	} catch (err) {
+		console.error('listSnapshots failed:', err);
 		return [];
 	}
 

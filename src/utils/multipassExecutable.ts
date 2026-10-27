@@ -2,10 +2,23 @@ import { type ChildProcessWithoutNullStreams,exec, execFile, spawn } from 'child
 import * as fs from 'fs';
 import { promisify } from 'util';
 
-import { MULTIPASS_PATHS } from './constants';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
+
+const MULTIPASS_PATHS = [
+	'multipass',                                                            // PATH lookup (works when shell PATH is inherited)
+	'/snap/bin/multipass',                                                  // Snap (Ubuntu/Linux)
+	'/usr/local/bin/multipass',                                             // Standard Linux + macOS pkg symlink
+	'/opt/homebrew/bin/multipass',                                          // Homebrew on Apple Silicon
+	'/Library/Application Support/com.canonical.multipass/bin/multipass',   // macOS pkg installer canonical location
+	'C:\\Program Files\\Multipass\\bin\\multipass.exe'                      // Windows installer default
+];
+
+export interface MultipassActionResult {
+	success: boolean;
+	error?: string;
+}
 
 /**
  * Removes SNAP-related variables inherited from a snapped VS Code process.
@@ -106,6 +119,36 @@ function buildScriptCommand(executablePath: string, args: readonly string[]): st
 	return [executablePath, ...args].map(shellEscape).join(' ');
 }
 
+/**
+ * Runs multipass once, without the snap `script` retry. Use it for commands
+ * that change state, so they never run twice.
+ */
+export async function execMultipass(args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
+	const multipassPath = await findMultipassExecutable();
+	return execFileAsync(multipassPath, [...args], { env: getSnapCleanEnv() });
+}
+
+export function multipassErrorMessage(err: unknown, fallback: string): string {
+	const e = err as { stderr?: unknown; message?: unknown } | undefined;
+	const stderr = e?.stderr?.toString().trim();
+	return stderr || (typeof e?.message === 'string' && e.message) || fallback;
+}
+
+/** Runs a state-changing command and reports success or the CLI's error text. */
+export async function runMultipassAction(args: readonly string[], fallbackError: string): Promise<MultipassActionResult> {
+	try {
+		await execMultipass(args);
+		return { success: true };
+	} catch (err) {
+		console.error(`multipass ${args[0]} failed:`, err);
+		return { success: false, error: multipassErrorMessage(err, fallbackError) };
+	}
+}
+
+/**
+ * Runs a read command. On snap, an empty stdout is retried through `script`
+ * because snap multipass prints nothing without a terminal.
+ */
 export async function runMultipassCommand(args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
 	const multipassPath = await findMultipassExecutable();
 	const env = getSnapCleanEnv();
