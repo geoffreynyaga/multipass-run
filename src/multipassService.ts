@@ -1,7 +1,6 @@
 // SSH utilities — imported for the MultipassService class
 import { deleteInstance as deleteInstanceCommand } from './commands/deleteInstance';
 import { deleteSnapshot as deleteSnapshotCommand } from './commands/deleteSnapshot';
-import { findImages as findImagesCommand } from './commands/findImages';
 import { getInstanceInfo as getInstanceInfoCommand } from './commands/getInstanceInfo';
 import { instanceNameExists as instanceNameExistsCommand } from './commands/launch/instanceNameExists';
 // Instance commands — imported for the MultipassService class
@@ -14,6 +13,7 @@ import { stopInstance as stopInstanceCommand } from './commands/stopInstance';
 import { suspendInstance as suspendInstanceCommand } from './commands/suspendInstance';
 import { takeSnapshot as takeSnapshotCommand } from './commands/takeSnapshot';
 import { isImageAlreadyDownloaded as isImageAlreadyDownloadedCommand } from './utils/isImageAlreadyDownloaded';
+import { findImages as findImagesCommand } from './utils/multipassFind';
 import { setupSSH as setupSSHCommand } from './utils/setupSSH';
 import {
 	connectToInstanceViaSSH as connectToInstanceViaSSHCommand,
