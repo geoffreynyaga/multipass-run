@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { CUSTOM_INSTANCE_DEFAULTS } from '../../utils/launchDefaults';
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../shared/constants';
 import { findImages } from '../../utils/multipassFind';
 import { buildImageOptions } from '../../utils/multipassImages';
 import { instanceNameExists } from './instanceNameExists';

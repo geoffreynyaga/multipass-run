@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
-import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
+import type { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
+import type { ExtensionMessage, InlineLaunchConfig, WebviewMessage } from '../shared/messages';
 import type { InstallPlan } from '../utils/installPackageManager';
-import type { MultipassDistro, MultipassImageOption } from '../utils/multipassImages';
+import type { MultipassImageOption } from '../utils/multipassImages';
 import type { MultipassCapabilities } from '../utils/multipassVersion';
 import { DaemonErrorScreen } from './components/DaemonErrorScreen';
 import { InstallMissingScreen } from './components/InstallMissingScreen';
@@ -26,17 +27,7 @@ declare global {
 
 const vscode = acquireVsCodeApi();
 
-export interface InlineLaunchConfig {
-	mode: 'quick' | 'custom';
-	name?: string;
-	distro: MultipassDistro;
-	image?: string;
-	imageRelease?: string;
-	cpus?: string;
-	memory?: string;
-	disk?: string;
-	enableSSH?: boolean;
-}
+export type { InlineLaunchConfig };
 
 export type InlineImageOption = MultipassImageOption;
 
@@ -58,7 +49,7 @@ const App: React.FC = () => {
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
-			const message = event.data;
+			const message = event.data as ExtensionMessage;
 
 			switch (message.command) {
 				case 'updateInstances':
@@ -94,47 +85,46 @@ const App: React.FC = () => {
 		return () => window.removeEventListener('message', handleMessage);
 	}, []);
 
-	const post = (command: string, payload?: Record<string, unknown>) =>
-		vscode.postMessage({ command, ...payload });
+	const post = (message: WebviewMessage) => vscode.postMessage(message);
 
-	const handleCreateInstance = () => post('launchInstance');
-	const handleCreateCustomInstance = () => post('launchCustomInstance');
-	const handleCreateCloudInitInstance = () => post('launchCloudInitInstance');
-	const handleCreateProfileInstance = () => post('launchProfileInstance');
-	const handleLaunchFromInlineForm = (config: InlineLaunchConfig) => post('launchInlineInstance', { config });
+	const handleCreateInstance = () => post({ command: 'launchInstance' });
+	const handleCreateCustomInstance = () => post({ command: 'launchCustomInstance' });
+	const handleCreateCloudInitInstance = () => post({ command: 'launchCloudInitInstance' });
+	const handleCreateProfileInstance = () => post({ command: 'launchProfileInstance' });
+	const handleLaunchFromInlineForm = (config: InlineLaunchConfig) => post({ command: 'launchInlineInstance', config });
 	const handleRequestInlineImages = React.useCallback((distro: InlineLaunchConfig['distro']) => {
 		setIsLoadingInlineImages(true);
-		post('getInlineImageOptions', { distro });
+		post({ command: 'getInlineImageOptions', distro });
 	}, []);
-	const handleStartInstance = (name: string) => post('startInstance', { instanceName: name });
-	const handleStopInstance = (name: string) => post('stopInstance', { instanceName: name });
-	const handleSuspendInstance = (name: string) => post('suspendInstance', { instanceName: name });
-	const handleShellInstance = (name: string) => post('shellInstance', { instanceName: name });
-	const handleSetupSSHInstance = (name: string) => post('setupSSHInstance', { instanceName: name });
-	const handleStartAndShellInstance = (name: string) => post('startAndShellInstance', { instanceName: name });
-	const handleRecoverAndShellInstance = (name: string) => post('recoverAndShellInstance', { instanceName: name });
-	const handleDeleteInstance = (name: string) => post('deleteInstance', { instanceName: name });
-	const handleRecoverInstance = (name: string) => post('recoverInstance', { instanceName: name });
-	const handlePurgeInstance = (name: string) => post('purgeInstance', { instanceName: name });
-	const handleGetInstanceInfo = (name: string) => post('getInstanceInfo', { instanceName: name });
-	const handleOpenFullDiskAccessSettings = () => post('openFullDiskAccessSettings');
-	const handleAddMount = (name: string) => post('addMount', { instanceName: name });
+	const handleStartInstance = (name: string) => post({ command: 'startInstance', instanceName: name });
+	const handleStopInstance = (name: string) => post({ command: 'stopInstance', instanceName: name });
+	const handleSuspendInstance = (name: string) => post({ command: 'suspendInstance', instanceName: name });
+	const handleShellInstance = (name: string) => post({ command: 'shellInstance', instanceName: name });
+	const handleSetupSSHInstance = (name: string) => post({ command: 'setupSSHInstance', instanceName: name });
+	const handleStartAndShellInstance = (name: string) => post({ command: 'startAndShellInstance', instanceName: name });
+	const handleRecoverAndShellInstance = (name: string) => post({ command: 'recoverAndShellInstance', instanceName: name });
+	const handleDeleteInstance = (name: string) => post({ command: 'deleteInstance', instanceName: name });
+	const handleRecoverInstance = (name: string) => post({ command: 'recoverInstance', instanceName: name });
+	const handlePurgeInstance = (name: string) => post({ command: 'purgeInstance', instanceName: name });
+	const handleGetInstanceInfo = (name: string) => post({ command: 'getInstanceInfo', instanceName: name });
+	const handleOpenFullDiskAccessSettings = () => post({ command: 'openFullDiskAccessSettings' });
+	const handleAddMount = (name: string) => post({ command: 'addMount', instanceName: name });
 	const handleRemoveMount = (name: string, guestPath: string) =>
-		post('removeMount', { instanceName: name, guestPath });
-	const handleGetSnapshots = (name: string) => post('getSnapshots', { instanceName: name });
+		post({ command: 'removeMount', instanceName: name, guestPath });
+	const handleGetSnapshots = (name: string) => post({ command: 'getSnapshots', instanceName: name });
 	const handleTakeSnapshot = (name: string, snapshotName?: string, comment?: string) =>
-		post('takeSnapshot', { instanceName: name, name: snapshotName, comment });
+		post({ command: 'takeSnapshot', instanceName: name, name: snapshotName, comment });
 	const handleRestoreSnapshot = (name: string, snapshotName: string) =>
-		post('restoreSnapshot', { instanceName: name, snapshotName });
+		post({ command: 'restoreSnapshot', instanceName: name, snapshotName });
 	const handleDeleteSnapshot = (name: string, snapshotName: string) =>
-		post('deleteSnapshot', { instanceName: name, snapshotName });
-	const handleRefreshList = () => post('refreshList');
-	const handleClearPendingLaunch = (name: string) => post('clearPendingLaunch', { instanceName: name });
-	const handleDownloadMultipass = () => post('downloadMultipass');
-	const handleInstallViaTerminal = () => post('installMultipassViaTerminal');
-	const handleCopyInstallCommand = () => post('copyInstallCommand');
-	const handleOpenManagerHelp = () => post('openInstallManagerHelp');
-	const handleOpenDocs = () => post('openMultipassDocumentation');
+		post({ command: 'deleteSnapshot', instanceName: name, snapshotName });
+	const handleRefreshList = () => post({ command: 'refreshList' });
+	const handleClearPendingLaunch = (name: string) => post({ command: 'clearPendingLaunch', instanceName: name });
+	const handleDownloadMultipass = () => post({ command: 'downloadMultipass' });
+	const handleInstallViaTerminal = () => post({ command: 'installMultipassViaTerminal' });
+	const handleCopyInstallCommand = () => post({ command: 'copyInstallCommand' });
+	const handleOpenManagerHelp = () => post({ command: 'openInstallManagerHelp' });
+	const handleOpenDocs = () => post({ command: 'openMultipassDocumentation' });
 
 	if (isDaemonNotRunning) {
 		return <DaemonErrorScreen onRefresh={handleRefreshList} />;

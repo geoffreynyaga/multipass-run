@@ -1,1 +1,0 @@
-export const MAX_VM_NAME_DISPLAY_CHARS = 24;
