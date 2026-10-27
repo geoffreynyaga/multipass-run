@@ -39,4 +39,30 @@ export default [{
         "simple-import-sort/imports": "warn",
         "simple-import-sort/exports": "warn",
     },
+}, {
+    // The webview runs in a browser. It may import extension code for types
+    // only; shared runtime values live in src/shared/.
+    files: ["src/webview/**/*.ts", "src/webview/**/*.tsx"],
+    rules: {
+        "@typescript-eslint/no-restricted-imports": ["error", {
+            paths: ["vscode", "child_process", "fs", "os", "path"].map((name) => ({
+                name,
+                message: "Node and VS Code modules are not available in the webview.",
+            })),
+            patterns: [{
+                group: [
+                    "**/multipassService",
+                    "**/MultipassViewProvider",
+                    "**/commands/**",
+                    "**/config/**",
+                    "**/extension-utils/**",
+                    "**/webview-handlers/**",
+                    "**/utils/*",
+                    "!**/utils/fontUtils",
+                ],
+                allowTypeImports: true,
+                message: "Import types only from extension code. Put shared values in src/shared/.",
+            }],
+        }],
+    },
 }];

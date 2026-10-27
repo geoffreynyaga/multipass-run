@@ -6,9 +6,10 @@ import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { setupSSHConnection } from '../extension-utils/sshSetup';
 import { MultipassService } from '../multipassService';
+import type { InlineLaunchConfig } from '../shared/messages';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
-import type { HandlerContext, LaunchInlineConfig } from './context';
+import type { HandlerContext } from './context';
 
 function prefixError(label: string, error: string | undefined): string | undefined {
 	return error && `${label}: ${error}`;
@@ -22,7 +23,7 @@ export async function handleLaunchCustomInstance(_msg: unknown, ctx: HandlerCont
 	await ctx.createDetailedInstance();
 }
 
-export async function handleLaunchInlineInstance(msg: { config: LaunchInlineConfig }, ctx: HandlerContext): Promise<void> {
+export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConfig }, ctx: HandlerContext): Promise<void> {
 	const config = msg.config;
 	const instanceName = config.name?.trim();
 

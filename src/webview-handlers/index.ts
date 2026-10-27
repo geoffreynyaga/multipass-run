@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import type { WebviewCommand, WebviewMessage } from '../shared/messages';
 import type { HandlerContext } from './context';
 import { handleCopyInstallCommand, handleDownloadMultipass, handleInstallViaTerminal, handleOpenInstallManagerHelp, handleOpenMultipassDocumentation } from './install';
 import { handleDeleteInstance, handleGetInstanceInfo, handlePurgeInstance,handleRecoverInstance, handleStartInstance, handleStopInstance, handleSuspendInstance } from './instance';
@@ -9,10 +10,10 @@ import { handleCancelPendingLaunch, handleClearPendingLaunch, handleRetryPending
 import { handleRecoverAndShellInstance,handleSetupSSHInstance, handleShellInstance, handleStartAndShellInstance } from './shell';
 import { handleDeleteSnapshot,handleGetSnapshots, handleRestoreSnapshot, handleTakeSnapshot } from './snapshots';
 
- 
-type Handler = (msg: any, ctx: HandlerContext) => Promise<void>;
+type Handler<M> = (msg: M, ctx: HandlerContext) => Promise<void>;
 
-const HANDLERS: Record<string, Handler> = {
+// One entry per command; a missing or misspelled command fails to compile.
+const HANDLERS: { [C in WebviewCommand]: Handler<Extract<WebviewMessage, { command: C }>> } = {
 	refreshList:                 async (_m, ctx) => ctx.refresh(),
 	downloadMultipass:           handleDownloadMultipass,
 	installMultipassViaTerminal: handleInstallViaTerminal,
@@ -53,10 +54,12 @@ const HANDLERS: Record<string, Handler> = {
 };
 
 export function createMessageDispatcher(ctx: HandlerContext) {
-	return async (message: Record<string, unknown>): Promise<void> => {
-		const handler = HANDLERS[message.command as string];
-		if (handler) {
-			await handler(message, ctx);
+	return async (message: WebviewMessage): Promise<void> => {
+		const handler = HANDLERS[message.command] as Handler<WebviewMessage> | undefined;
+		if (!handler) {
+			console.warn('Unknown webview command:', message.command);
+			return;
 		}
+		await handler(message, ctx);
 	};
 }

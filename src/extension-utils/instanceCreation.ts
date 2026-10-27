@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import { createDefaultInstance, createDetailedInstance, launchInstance,MultipassService } from '../multipassService';
+import type { ExtensionMessage } from '../shared/messages';
 import { PendingLaunchStore } from './pendingLaunches';
 import { setupSSHConnection } from './sshSetup';
 
@@ -55,7 +56,7 @@ export async function handleCreateDefaultInstance(
 				view.webview.postMessage({
 					command: 'updateInstances',
 					instanceLists: currentLists
-				});
+				} satisfies ExtensionMessage);
 			}
 		}
 	});
@@ -132,7 +133,7 @@ export async function handleCreateDetailedInstance(
 		view.webview.postMessage({
 			command: 'updateInstances',
 			instanceLists: currentLists
-		});
+		} satisfies ExtensionMessage);
 	}
 
 	// Launch the instance with the custom configuration and progress tracking

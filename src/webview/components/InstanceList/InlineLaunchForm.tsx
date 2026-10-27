@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { CUSTOM_INSTANCE_DEFAULTS } from '../../../utils/launchDefaults';
+import { CUSTOM_INSTANCE_DEFAULTS } from '../../../shared/constants';
 import type { InlineLaunchConfig } from '../../App';
 import { getMonoFont } from '../../utils/fontUtils';
 import type { InlineLaunchFormProps } from './types';

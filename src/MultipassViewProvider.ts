@@ -22,6 +22,7 @@ import {
 import { setupSSHConnection } from './extension-utils/sshSetup';
 import { TerminalManager } from './extension-utils/terminalManager';
 import { MultipassService } from './multipassService';
+import type { ExtensionMessage } from './shared/messages';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 import { detectInstallPlan,type InstallPlan } from './utils/installPackageManager';
 import { resetMultipassExecutableCache } from './utils/multipassExecutable';
@@ -210,7 +211,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				this._view.webview.postMessage({
 					command: 'updateInstances',
 					instanceLists: currentLists,
-				});
+				} satisfies ExtensionMessage);
 			}
 		}
 
@@ -578,7 +579,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 					this._imagesFetchPending = false;
 					const caps = capabilitiesFromImages(result);
 					this._multipassCapabilities = caps;
-					this._view?.webview.postMessage({ command: 'multipassCapabilities', capabilities: caps });
+					this._view?.webview.postMessage({ command: 'multipassCapabilities', capabilities: caps } satisfies ExtensionMessage);
 				}).catch(() => {
 					this._imagesFetchPending = false;
 				});
@@ -624,9 +625,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			);
 			this._htmlInitialized = true;
 		} else {
-			this._view.webview.postMessage({ command: 'updateInstances', instanceLists: merged });
-			this._view.webview.postMessage({ command: 'installPlan', plan: this._installPlan });
-			this._view.webview.postMessage({ command: 'multipassCapabilities', capabilities: this._multipassCapabilities });
+			this._view.webview.postMessage({ command: 'updateInstances', instanceLists: merged } satisfies ExtensionMessage);
+			this._view.webview.postMessage({ command: 'installPlan', plan: this._installPlan } satisfies ExtensionMessage);
+			this._view.webview.postMessage({ command: 'multipassCapabilities', capabilities: this._multipassCapabilities } satisfies ExtensionMessage);
 		}
 	}
 

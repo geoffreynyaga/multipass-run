@@ -1,4 +1,4 @@
-import { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../../multipassService';
+import type { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../../multipassService';
 import { getDistributionFont, getMonoFont } from '../utils/fontUtils';
 
 import { EmptyInstanceState } from './InstanceList/EmptyInstanceState';
@@ -8,7 +8,7 @@ import { InstanceDetails } from './InstanceDetails';
 import { LaunchOptionsPanel } from './InstanceList/LaunchOptionsPanel';
 import type { InlineImageOption, InlineLaunchConfig } from '../App';
 import type { MultipassCapabilities } from '../../utils/multipassVersion';
-import { MAX_VM_NAME_DISPLAY_CHARS } from '../../utils/constants';
+import { MAX_VM_NAME_DISPLAY_CHARS } from '../../shared/constants';
 import React from 'react';
 
 interface InstanceListProps {
