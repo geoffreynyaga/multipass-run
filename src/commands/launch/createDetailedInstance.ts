@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
 import { CUSTOM_INSTANCE_DEFAULTS } from '../../utils/launchDefaults';
+import { findImages } from '../../utils/multipassFind';
 import { buildImageOptions } from '../../utils/multipassImages';
-import { findImages } from '../findImages';
 import { instanceNameExists } from './instanceNameExists';
 import { promptSSHOption } from './promptSSHOption';
 import { validateCpus, validateDisk, validateInstanceName, validateMemory } from './validation';
