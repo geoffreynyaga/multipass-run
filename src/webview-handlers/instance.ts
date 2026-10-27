@@ -1,24 +1,31 @@
 import * as vscode from 'vscode';
 
+import { deleteInstance } from '../commands/deleteInstance';
+import { getInstanceInfo } from '../commands/getInstanceInfo';
+import { getInstanceLists } from '../commands/listInstances';
+import { recoverInstance } from '../commands/recoverInstance';
+import { startInstance } from '../commands/startInstance';
+import { stopInstance } from '../commands/stopInstance';
+import { suspendInstance } from '../commands/suspendInstance';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
-import { MultipassService } from '../multipassService';
+import { removeSSHConfigForInstance } from '../utils/sshConfig';
 import type { HandlerContext } from './context';
 
 export async function handleGetInstanceInfo(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const info = await MultipassService.getInstanceInfo(msg.instanceName);
+	const info = await getInstanceInfo(msg.instanceName);
 	if (info) {
 		ctx.postMessage({ command: 'instanceInfo', info });
 	}
 }
 
 export async function handleStopInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const stoppingInstance = currentLists.active.find(i => i.name === msg.instanceName);
 	if (stoppingInstance) {
 		stoppingInstance.state = 'Stopping';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.stopInstance(msg.instanceName);
+	const result = await stopInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is stopping...`);
 		ctx.terminalManager.closeInstanceTerminals(msg.instanceName);
@@ -33,7 +40,7 @@ export async function handleStopInstance(msg: { instanceName: string }, ctx: Han
 }
 
 export async function handleSuspendInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const result = await MultipassService.suspendInstance(msg.instanceName);
+	const result = await suspendInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is suspending...`);
 		setTimeout(async () => {
@@ -47,13 +54,13 @@ export async function handleSuspendInstance(msg: { instanceName: string }, ctx: 
 }
 
 export async function handleStartInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const startingInstance = currentLists.active.find(i => i.name === msg.instanceName);
 	if (startingInstance) {
 		startingInstance.state = 'Starting';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.startInstance(msg.instanceName);
+	const result = await startInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is starting...`);
 		pollInstanceStatus(msg.instanceName, () => ctx.refresh());
@@ -64,13 +71,13 @@ export async function handleStartInstance(msg: { instanceName: string }, ctx: Ha
 }
 
 export async function handleRecoverInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const recoveringInstance = currentLists.deleted.find(i => i.name === msg.instanceName);
 	if (recoveringInstance) {
 		recoveringInstance.state = 'Recovering';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.recoverInstance(msg.instanceName);
+	const result = await recoverInstance(msg.instanceName);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is recovering...`);
 		setTimeout(async () => {
@@ -92,13 +99,13 @@ export async function handleDeleteInstance(msg: { instanceName: string }, ctx: H
 	);
 
 	if (choice === 'Delete') {
-		const currentLists = await MultipassService.getInstanceLists();
+		const currentLists = await getInstanceLists();
 		const deletingInstance = currentLists.active.find(i => i.name === msg.instanceName);
 		if (deletingInstance) {
 			deletingInstance.state = 'Deleting';
 			ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 		}
-		const result = await MultipassService.deleteInstance(msg.instanceName, false);
+		const result = await deleteInstance(msg.instanceName, false);
 		if (result.success) {
 			vscode.window.showInformationMessage(`Instance '${msg.instanceName}' deleted (can be recovered)`);
 			ctx.terminalManager.closeInstanceTerminals(msg.instanceName);
@@ -108,17 +115,17 @@ export async function handleDeleteInstance(msg: { instanceName: string }, ctx: H
 			await ctx.refresh();
 		}
 	} else if (choice === 'Purge') {
-		const currentLists = await MultipassService.getInstanceLists();
+		const currentLists = await getInstanceLists();
 		const deletingInstance = currentLists.active.find(i => i.name === msg.instanceName);
 		if (deletingInstance) {
 			deletingInstance.state = 'Deleting';
 			ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 		}
-		const result = await MultipassService.deleteInstance(msg.instanceName, true);
+		const result = await deleteInstance(msg.instanceName, true);
 		if (result.success) {
 			vscode.window.showInformationMessage(`Instance '${msg.instanceName}' permanently deleted`);
 			ctx.terminalManager.closeInstanceTerminals(msg.instanceName);
-			await MultipassService.removeSSHConfigForInstance(msg.instanceName);
+			await removeSSHConfigForInstance(msg.instanceName);
 			await ctx.refresh();
 			await ctx.maybeOfferKeyRemovalPrompt();
 		} else {
@@ -137,17 +144,17 @@ export async function handlePurgeInstance(msg: { instanceName: string }, ctx: Ha
 	if (confirm !== 'Purge') {
 		return;
 	}
-	const currentLists = await MultipassService.getInstanceLists();
+	const currentLists = await getInstanceLists();
 	const deletingInstance = currentLists.deleted.find(i => i.name === msg.instanceName);
 	if (deletingInstance) {
 		deletingInstance.state = 'Deleting';
 		ctx.postMessage({ command: 'updateInstances', instanceLists: currentLists });
 	}
-	const result = await MultipassService.deleteInstance(msg.instanceName, true);
+	const result = await deleteInstance(msg.instanceName, true);
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' purged`);
 		ctx.terminalManager.closeInstanceTerminals(msg.instanceName);
-		await MultipassService.removeSSHConfigForInstance(msg.instanceName);
+		await removeSSHConfigForInstance(msg.instanceName);
 		await ctx.refresh();
 		await ctx.maybeOfferKeyRemovalPrompt();
 	} else {

@@ -3,9 +3,12 @@ import * as nodeOs from 'os';
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 
+import { instanceNameExists } from './commands/launch/instanceNameExists';
 import { launchInstance } from './commands/launch/launchInstance';
 import { validateInstanceName } from './commands/launch/validation';
+import { getInstanceLists } from './commands/listInstances';
 import { mountFolder } from './commands/mountFolder';
+import { startInstance } from './commands/startInstance';
 import {
 	INSTANCE_START_MAX_POLL_ATTEMPTS,
 	INSTANCE_START_POLL_INTERVAL_MS,
@@ -21,14 +24,16 @@ import {
 } from './extension-utils/pendingLaunches';
 import { setupSSHConnection } from './extension-utils/sshSetup';
 import { TerminalManager } from './extension-utils/terminalManager';
-import { MultipassService } from './multipassService';
 import type { ExtensionMessage } from './shared/messages';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 import { detectInstallPlan,type InstallPlan } from './utils/installPackageManager';
+import { isImageAlreadyDownloaded } from './utils/isImageAlreadyDownloaded';
 import { resetMultipassExecutableCache } from './utils/multipassExecutable';
+import { findImages } from './utils/multipassFind';
 import type { FindImagesResult } from './utils/multipassImages';
 import type { MultipassCapabilities } from './utils/multipassVersion';
 import { capabilitiesFromImages } from './utils/multipassVersion';
+import { countManagedSSHEntries, hasManagedSSHKeyPair, removeManagedSSHKeyPair } from './utils/sshConfig';
 import type { HandlerContext } from './webview-handlers/context';
 import { createMessageDispatcher } from './webview-handlers/index';
 import { WebviewContent } from './webviewContent';
@@ -78,18 +83,18 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			// The prompt text claims "No more multipass instances"; bail
 			// unless that's literally true. Otherwise users see this popup
 			// after deleting one of several VMs and rightly get confused.
-			const lists = await MultipassService.getInstanceLists();
+			const lists = await getInstanceLists();
 			if (lists.active.length > 0 || lists.deleted.length > 0) {
 				return;
 			}
 			// Managed config blocks still pointing at the key — don't
 			// blow the key away while something might use it.
-			if (MultipassService.countManagedSSHEntries() > 0) {
+			if (countManagedSSHEntries() > 0) {
 				return;
 			}
 			// Nothing on disk to remove (SSH was never set up, or the key
 			// pair was already cleaned up). No point asking.
-			if (!MultipassService.hasManagedSSHKeyPair()) {
+			if (!hasManagedSSHKeyPair()) {
 				return;
 			}
 			const sshDirAbsolute = nodePath.join(nodeOs.homedir(), '.ssh');
@@ -100,7 +105,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				"Don't ask again"
 			);
 			if (choice === 'Yes') {
-				MultipassService.removeManagedSSHKeyPair();
+				removeManagedSSHKeyPair();
 				vscode.window.showInformationMessage('Multipass SSH key pair removed.');
 			} else if (choice === "Don't ask again") {
 				await this._globalState.update('multipassRun.skipKeyRemovalPrompt', true);
@@ -199,9 +204,9 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 		// Optimistic sidebar row so the launch is visible immediately
 		if (this._view) {
-			const currentLists = await MultipassService.getInstanceLists();
+			const currentLists = await getInstanceLists();
 			if (!currentLists.error) {
-				const isImageCached = await MultipassService.isImageAlreadyDownloaded(release);
+				const isImageCached = await isImageAlreadyDownloaded(release);
 				currentLists.active.push({
 					name: opts.instanceName,
 					state: isImageCached ? 'Creating' : 'Downloading Image',
@@ -247,7 +252,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 					if (launchSettled) { break; }
 
-					const lists = await MultipassService.getInstanceLists();
+					const lists = await getInstanceLists();
 					if (!lists.error) {
 						const inst = lists.active.find(x => x.name === opts.instanceName);
 						if (inst) {
@@ -342,7 +347,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		const folderName = nodePath.basename(folderPath);
 		const guestPath = `/home/ubuntu/${folderName}`;
 
-		const lists = await MultipassService.getInstanceLists();
+		const lists = await getInstanceLists();
 		if (lists.error) {
 			vscode.window.showErrorMessage(`Cannot open in Multipass: ${lists.error.message}`);
 			return;
@@ -395,7 +400,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				if (nameError) {
 					return nameError;
 				}
-				if (await MultipassService.instanceNameExists(v)) {
+				if (await instanceNameExists(v)) {
 					return `'${v}' already exists`;
 				}
 				return null;
@@ -449,7 +454,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			);
 			if (go !== 'Start and Mount') { return; }
 
-			const startResult = await MultipassService.startInstance(vmName);
+			const startResult = await startInstance(vmName);
 			if (!startResult.success) {
 				vscode.window.showErrorMessage(`Failed to start '${vmName}': ${startResult.error}`);
 				return;
@@ -463,7 +468,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				async () => {
 					for (let i = 0; i < INSTANCE_START_MAX_POLL_ATTEMPTS; i++) {
 						await new Promise(r => setTimeout(r, INSTANCE_START_POLL_INTERVAL_MS));
-						const check = await MultipassService.getInstanceLists();
+						const check = await getInstanceLists();
 						if (!check.error) {
 							const inst = check.active.find(x => x.name === vmName);
 							if (inst?.state.toLowerCase() === 'running') {
@@ -553,7 +558,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 				if (nameError) {
 					return nameError;
 				}
-				if (await MultipassService.instanceNameExists(v)) {
+				if (await instanceNameExists(v)) {
 					return `'${v}' already exists`;
 				}
 				return null;
@@ -566,7 +571,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			return;
 		}
 
-		const rawLists = await MultipassService.getInstanceLists();
+		const rawLists = await getInstanceLists();
 		if (rawLists.error) {
 			this._multipassCapabilities = { supportsAlternativeDistros: false };
 			this._cachedImages = null;
@@ -574,7 +579,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			this._multipassCapabilities = capabilitiesFromImages(this._cachedImages);
 			if (!this._cachedImages && !this._imagesFetchPending) {
 				this._imagesFetchPending = true;
-				MultipassService.findImages().then(result => {
+				findImages().then(result => {
 					this._cachedImages = result;
 					this._imagesFetchPending = false;
 					const caps = capabilitiesFromImages(result);
@@ -631,7 +636,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
-	private updateStatusBar(instanceLists: Awaited<ReturnType<typeof MultipassService.getInstanceLists>>): void {
+	private updateStatusBar(instanceLists: Awaited<ReturnType<typeof getInstanceLists>>): void {
 		if (instanceLists.error) {
 			this._statusBarItem.text = '$(vm) Multipass';
 			this._statusBarItem.tooltip = instanceLists.error.message;

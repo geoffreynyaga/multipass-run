@@ -1,7 +1,8 @@
-import { getMonoFont } from '../utils/fontUtils';
-
-import type { MultipassInstanceInfo, MultipassSnapshot } from '../../multipassService';
 import React from 'react';
+
+import type { MultipassInstanceInfo } from '../../commands/getInstanceInfo';
+import type { MultipassSnapshot } from '../../commands/listSnapshots';
+import { getMonoFont } from '../utils/fontUtils';
 
 interface InstanceDetailsProps {
 	info: MultipassInstanceInfo;

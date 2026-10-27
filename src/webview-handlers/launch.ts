@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 
+import { instanceNameExists } from '../commands/launch/instanceNameExists';
 import { launchInstance } from '../commands/launch/launchInstance';
 import { validateCpus, validateDisk, validateInstanceName, validateMemory } from '../commands/launch/validation';
+import { getInstanceLists } from '../commands/listInstances';
 import { INLINE_LAUNCH_MAX_DURATION_MS, INLINE_LAUNCH_REFRESH_INTERVAL_MS } from '../config/timings';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { setupSSHConnection } from '../extension-utils/sshSetup';
-import { MultipassService } from '../multipassService';
 import type { InlineLaunchConfig } from '../shared/messages';
+import { isImageAlreadyDownloaded } from '../utils/isImageAlreadyDownloaded';
+import { findImages } from '../utils/multipassFind';
 import { buildImageOptions, pickImageForDistro } from '../utils/multipassImages';
 import { capabilitiesFromImages } from '../utils/multipassVersion';
 import type { HandlerContext } from './context';
@@ -32,7 +35,7 @@ export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConf
 		vscode.window.showErrorMessage(nameError);
 		return;
 	}
-	if (instanceName && await MultipassService.instanceNameExists(instanceName)) {
+	if (instanceName && await instanceNameExists(instanceName)) {
 		vscode.window.showErrorMessage(`Instance '${instanceName}' already exists. Please choose a different name.`);
 		return;
 	}
@@ -41,7 +44,7 @@ export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConf
 		return;
 	}
 
-	const imagesResult = await MultipassService.findImages();
+	const imagesResult = await findImages();
 	if (!imagesResult) {
 		vscode.window.showErrorMessage('Failed to fetch available Multipass images.');
 		return;
@@ -81,8 +84,8 @@ export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConf
 			},
 		});
 
-		const currentLists = await MultipassService.getInstanceLists();
-		const isImageCached = await MultipassService.isImageAlreadyDownloaded(image.release);
+		const currentLists = await getInstanceLists();
+		const isImageCached = await isImageAlreadyDownloaded(image.release);
 		currentLists.active.push({
 			name: instanceName,
 			state: isImageCached ? 'Creating' : 'Downloading Image',
@@ -174,7 +177,7 @@ export async function handleGetInlineImageOptions(msg: { distro?: string }, ctx:
 
 	let imagesResult = ctx.cachedImages;
 	if (!imagesResult) {
-		imagesResult = await MultipassService.findImages();
+		imagesResult = await findImages();
 		if (imagesResult) {
 			ctx.setCachedImages(imagesResult);
 			ctx.setMultipassCapabilities(capabilitiesFromImages(imagesResult));

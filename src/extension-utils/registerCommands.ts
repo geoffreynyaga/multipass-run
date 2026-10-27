@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
 
+import { getInstanceLists } from '../commands/listInstances';
 import { AUTO_PRUNE_DELAY_MS } from '../config/timings';
-import { MultipassService } from '../multipassService';
 import { MultipassViewProvider } from '../MultipassViewProvider';
+import { setupSSH } from '../utils/setupSSH';
+import { pruneOrphanedSSHEntries } from '../utils/sshConfig';
 import { PendingLaunchStore } from './pendingLaunches';
 
 export function registerCommands(
@@ -69,14 +71,14 @@ export function registerCommands(
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('multipass-run.setupSSH', async () => {
-			await MultipassService.setupSSH();
+			await setupSSH();
 		})
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('multipass-run.pruneOrphanedSSHEntries', async () => {
 			try {
-				const lists = await MultipassService.getInstanceLists();
+				const lists = await getInstanceLists();
 				if (lists.error) {
 					vscode.window.showErrorMessage(`Cannot prune: ${lists.error.message}`);
 					return;
@@ -85,7 +87,7 @@ export function registerCommands(
 					...lists.active.map((i) => i.name),
 					...lists.deleted.map((i) => i.name),
 				]);
-				const removed = await MultipassService.pruneOrphanedSSHEntries(known);
+				const removed = await pruneOrphanedSSHEntries(known);
 				if (removed.length === 0) {
 					vscode.window.showInformationMessage('No orphaned SSH config entries found.');
 				} else {
@@ -125,13 +127,13 @@ export function registerCommands(
 	// or direct CLI deletes. Short delay lets the multipass daemon settle.
 	setTimeout(async () => {
 		try {
-			const lists = await MultipassService.getInstanceLists();
+			const lists = await getInstanceLists();
 			if (lists.error) { return; }
 			const known = new Set<string>([
 				...lists.active.map((i) => i.name),
 				...lists.deleted.map((i) => i.name),
 			]);
-			const removed = await MultipassService.pruneOrphanedSSHEntries(known);
+			const removed = await pruneOrphanedSSHEntries(known);
 			if (removed.length > 0) {
 				console.log(
 					`[multipass-run] Auto-pruned ${removed.length} orphaned SSH entr${removed.length === 1 ? 'y' : 'ies'}: ${removed.join(', ')}`

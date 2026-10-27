@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
 
-import { createDefaultInstance, createDetailedInstance, launchInstance,MultipassService } from '../multipassService';
+import { createDefaultInstance } from '../commands/launch/createDefaultInstance';
+import { createDetailedInstance } from '../commands/launch/createDetailedInstance';
+import { launchInstance } from '../commands/launch/launchInstance';
+import { getInstanceLists } from '../commands/listInstances';
 import type { ExtensionMessage } from '../shared/messages';
+import { isImageAlreadyDownloaded } from '../utils/isImageAlreadyDownloaded';
 import { PendingLaunchStore } from './pendingLaunches';
 import { setupSSHConnection } from './sshSetup';
 
@@ -43,8 +47,8 @@ export async function handleCreateDefaultInstance(
 
 			// Check if image is already downloaded to show appropriate state
 			if (view && instanceName && imageRelease) {
-				const currentLists = await MultipassService.getInstanceLists();
-				const isImageCached = await MultipassService.isImageAlreadyDownloaded(imageRelease);
+				const currentLists = await getInstanceLists();
+				const isImageCached = await isImageAlreadyDownloaded(imageRelease);
 
 				const newInstance = {
 					name: instanceName,
@@ -120,8 +124,8 @@ export async function handleCreateDetailedInstance(
 
 	// Check if image is already downloaded to show appropriate state
 	if (view) {
-		const currentLists = await MultipassService.getInstanceLists();
-		const isImageCached = await MultipassService.isImageAlreadyDownloaded(config.imageRelease);
+		const currentLists = await getInstanceLists();
+		const isImageCached = await isImageAlreadyDownloaded(config.imageRelease);
 
 		const newInstance = {
 			name: config.name,

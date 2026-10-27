@@ -1,8 +1,8 @@
 import * as nodePath from 'path';
 import * as vscode from 'vscode';
 
+import { getInstanceInfo } from '../commands/getInstanceInfo';
 import { mountFolder, unmountFolder } from '../commands/mountFolder';
-import { MultipassService } from '../multipassService';
 import type { HandlerContext } from './context';
 
 export async function handleAddMount(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
@@ -37,7 +37,7 @@ export async function handleAddMount(msg: { instanceName: string }, ctx: Handler
 		vscode.window.showInformationMessage(
 			`Mounted '${hostPath}' into '${msg.instanceName}' at ${guestPath}`
 		);
-		const info = await MultipassService.getInstanceInfo(msg.instanceName);
+		const info = await getInstanceInfo(msg.instanceName);
 		if (info) {
 			ctx.postMessage({ command: 'instanceInfo', info });
 		}
@@ -61,7 +61,7 @@ export async function handleRemoveMount(msg: { instanceName: string; guestPath: 
 		vscode.window.showInformationMessage(
 			`Unmounted ${msg.guestPath} from '${msg.instanceName}'`
 		);
-		const info = await MultipassService.getInstanceInfo(msg.instanceName);
+		const info = await getInstanceInfo(msg.instanceName);
 		if (info) {
 			ctx.postMessage({ command: 'instanceInfo', info });
 		}

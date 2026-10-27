@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
-import type { InstanceLists, MultipassInstanceInfo, MultipassSnapshot } from '../multipassService';
+import type { MultipassInstanceInfo } from '../commands/getInstanceInfo';
+import type { InstanceLists } from '../commands/listInstances';
+import type { MultipassSnapshot } from '../commands/listSnapshots';
 import type { ExtensionMessage, InlineLaunchConfig, WebviewMessage } from '../shared/messages';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { MultipassImageOption } from '../utils/multipassImages';
