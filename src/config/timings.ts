@@ -59,3 +59,6 @@ export const MULTIPASS_ENVIRONMENT_REFRESH_INTERVAL_MS = 30000;
 // protects against a hung CLI keeping the interval alive forever.
 export const INLINE_LAUNCH_REFRESH_INTERVAL_MS = 2000;
 export const INLINE_LAUNCH_MAX_DURATION_MS = 10 * 60 * 1000;
+
+// Zone reads must not leave controls busy.
+export const ZONE_QUERY_TIMEOUT_MS = 10000;

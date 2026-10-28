@@ -69,7 +69,7 @@
       "multipass-run-sidebar": [
         {
           "id": "multipass-run-view",
-          "name": "Instances",
+          "name": "Multipass",
           "type": "webview",
           "icon": "media/icon.svg"
         }
