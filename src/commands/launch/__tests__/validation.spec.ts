@@ -25,7 +25,7 @@ describe('validateCpus', () => {
 });
 
 describe('validateMemory', () => {
-	it.each(['128M', '512M', '1G', '1.5G', '2G'])('accepts %s', (value) => {
+	it.each(['524288K', '512M', '0.5G', '1G', '1.5G', '2G'])('accepts %s', (value) => {
 		expect(validateMemory(value)).toBeUndefined();
 	});
 
@@ -33,13 +33,13 @@ describe('validateMemory', () => {
 		expect(validateMemory(value)).toMatch(/Format/);
 	});
 
-	it('rejects less than 128M', () => {
-		expect(validateMemory('127M')).toBe('Minimum memory: 128M');
+	it.each(['128M', '511M', '524287K', '0.499G'])('rejects below-floor memory %s', (value) => {
+		expect(validateMemory(value)).toBe('Minimum memory: 512M');
 	});
 });
 
 describe('validateDisk', () => {
-	it.each(['512M', '5G', '10G'])('accepts %s', (value) => {
+	it.each(['1048576K', '1024M', '1G', '5G', '10G'])('accepts %s', (value) => {
 		expect(validateDisk(value)).toBeUndefined();
 	});
 
@@ -47,7 +47,7 @@ describe('validateDisk', () => {
 		expect(validateDisk(value)).toMatch(/Format/);
 	});
 
-	it('rejects less than 512M', () => {
-		expect(validateDisk('511M')).toBe('Minimum disk: 512M');
+	it.each(['512M', '1023M', '1048575K', '0.999G'])('rejects below-floor disk %s', (value) => {
+		expect(validateDisk(value)).toBe('Minimum disk: 1024M');
 	});
 });

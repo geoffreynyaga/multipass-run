@@ -25,11 +25,11 @@ export function validateCpus(value: string): string | undefined {
 }
 
 export function validateMemory(value: string): string | undefined {
-	return validateSize(value, 128, 'memory', '1G, 512M');
+	return validateSize(value, 512, 'memory', '1G, 512M');
 }
 
 export function validateDisk(value: string): string | undefined {
-	return validateSize(value, 512, 'disk', '5G, 2048M');
+	return validateSize(value, 1024, 'disk', '5G, 2048M');
 }
 
 function validateSize(value: string, minMb: number, label: string, example: string): string | undefined {
