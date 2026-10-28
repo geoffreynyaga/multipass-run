@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { findImages } from '../../utils/multipassFind';
-import { buildImageOptions } from '../../utils/multipassImages';
+import { buildLaunchImageOptions } from '../../utils/multipassImages';
 import { instanceNameExists } from './instanceNameExists';
 import { launchInstance } from './launchInstance';
 import { promptSSHOption } from './promptSSHOption';
@@ -63,14 +63,14 @@ export async function createDefaultInstance(
 		imageKey: string;
 	}
 
-	const imageOptions = buildImageOptions(imagesResult.images, 'ubuntu');
+	const imageOptions = buildLaunchImageOptions(imagesResult.images);
 	const firstOtherImageIndex = imageOptions.findIndex((image) => !image.isLts);
 	const imageItems: ImageQuickPickItem[] = imageOptions.flatMap((image, index) => {
 		const item: ImageQuickPickItem = {
 			label: image.label,
 			description: image.description ?? '',
 			detail: image.detail,
-			picked: image.imageKey === '24.04',
+			picked: index === 0,
 			alwaysShow: image.isLts,
 			imageKey: image.imageKey
 		};

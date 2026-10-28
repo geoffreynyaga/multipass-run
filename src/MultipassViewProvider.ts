@@ -53,7 +53,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _htmlInitialized = false;
 	public terminalManager = new TerminalManager();
 	private readonly _statusBarItem: vscode.StatusBarItem;
-	private _multipassCapabilities: MultipassCapabilities = { supportsAlternativeDistros: false };
+	private _multipassCapabilities: MultipassCapabilities = { supportsFedora: false, supportsDebian: false };
 	private _cachedImages: FindImagesResult | null = null;
 	private _imagesFetchPending = false;
 	private _installPlan: InstallPlan | null = null;
@@ -573,7 +573,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 
 		const rawLists = await getInstanceLists();
 		if (rawLists.error) {
-			this._multipassCapabilities = { supportsAlternativeDistros: false };
+			this._multipassCapabilities = { supportsFedora: false, supportsDebian: false };
 			this._cachedImages = null;
 		} else {
 			this._multipassCapabilities = capabilitiesFromImages(this._cachedImages);
