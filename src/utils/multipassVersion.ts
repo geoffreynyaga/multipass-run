@@ -1,8 +1,16 @@
 import { type FindImagesResult, getImageEntriesForDistro } from './multipassImages';
 
+export interface MultipassEnvironment {
+	clientVersion: string | null;
+	daemonVersion: string | null;
+	driver: string | null;
+	errors: string[];
+}
+
 export interface MultipassCapabilities {
 	supportsFedora: boolean;
 	supportsDebian: boolean;
+	environment?: MultipassEnvironment;
 }
 
 export function capabilitiesFromImages(images: FindImagesResult | null): MultipassCapabilities {

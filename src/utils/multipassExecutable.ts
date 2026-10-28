@@ -149,10 +149,13 @@ export async function runMultipassAction(args: readonly string[], fallbackError:
  * Runs a read command. On snap, an empty stdout is retried through `script`
  * because snap multipass prints nothing without a terminal.
  */
-export async function runMultipassCommand(args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
+export async function runMultipassCommand(
+	args: readonly string[],
+	options: { timeout?: number } = {}
+): Promise<{ stdout: string; stderr: string }> {
 	const multipassPath = await findMultipassExecutable();
 	const env = getSnapCleanEnv();
-	const directResult = await execFileAsync(multipassPath, [...args], { env });
+	const directResult = await execFileAsync(multipassPath, [...args], { env, ...options });
 
 	if (directResult.stdout || !isSnapMultipassPath(multipassPath)) {
 		return directResult;
@@ -160,6 +163,7 @@ export async function runMultipassCommand(args: readonly string[]): Promise<{ st
 
 	return execFileAsync('script', ['-q', '-c', buildScriptCommand(multipassPath, args), '/dev/null'], {
 		env,
+		...options,
 	});
 }
 

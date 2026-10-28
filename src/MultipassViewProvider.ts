@@ -14,6 +14,7 @@ import {
 	INSTANCE_START_POLL_INTERVAL_MS,
 	LAUNCH_PROGRESS_MAX_WAIT_MS,
 	LAUNCH_PROGRESS_POLL_INTERVAL_MS,
+	MULTIPASS_ENVIRONMENT_REFRESH_INTERVAL_MS,
 } from './config/timings';
 import { handleCreateDefaultInstance, handleCreateDetailedInstance } from './extension-utils/instanceCreation';
 import { pollInstanceStatus } from './extension-utils/instancePolling';
@@ -28,10 +29,11 @@ import type { ExtensionMessage } from './shared/messages';
 import { isCloudInitFile } from './utils/cloudInitDetect';
 import { detectInstallPlan,type InstallPlan } from './utils/installPackageManager';
 import { isImageAlreadyDownloaded } from './utils/isImageAlreadyDownloaded';
+import { detectMultipassEnvironment } from './utils/multipassEnvironment';
 import { resetMultipassExecutableCache } from './utils/multipassExecutable';
 import { findImages } from './utils/multipassFind';
 import type { FindImagesResult } from './utils/multipassImages';
-import type { MultipassCapabilities } from './utils/multipassVersion';
+import type { MultipassCapabilities, MultipassEnvironment } from './utils/multipassVersion';
 import { capabilitiesFromImages } from './utils/multipassVersion';
 import { countManagedSSHEntries, hasManagedSSHKeyPair, removeManagedSSHKeyPair } from './utils/sshConfig';
 import type { HandlerContext } from './webview-handlers/context';
@@ -56,6 +58,8 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 	private _multipassCapabilities: MultipassCapabilities = { supportsFedora: false, supportsDebian: false };
 	private _cachedImages: FindImagesResult | null = null;
 	private _imagesFetchPending = false;
+	private _environmentFetch: Promise<MultipassEnvironment> | undefined;
+	private _environmentCheckedAt = 0;
 	private _installPlan: InstallPlan | null = null;
 
 	constructor(
@@ -143,7 +147,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			get multipassCapabilities() { return self._multipassCapabilities; },
 			postMessage: (msg) => webviewView.webview.postMessage(msg),
 			setCachedImages: (images) => { self._cachedImages = images; },
-			setMultipassCapabilities: (caps) => { self._multipassCapabilities = caps; },
+			setMultipassCapabilities: (caps) => { self._multipassCapabilities = { ...self._multipassCapabilities, ...caps }; },
 			refresh: () => self.refresh(),
 			createDefaultInstance: () => self.createDefaultInstance(),
 			createDetailedInstance: () => self.createDetailedInstance(),
@@ -566,6 +570,18 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		});
 	}
 
+	public inspectEnvironment(): Promise<MultipassEnvironment> {
+		if (!this._environmentFetch) {
+			this._environmentCheckedAt = Date.now();
+			this._environmentFetch = detectMultipassEnvironment().then(environment => {
+				this._multipassCapabilities = { ...this._multipassCapabilities, environment };
+				this._view?.webview.postMessage({ command: 'multipassCapabilities', capabilities: this._multipassCapabilities } satisfies ExtensionMessage);
+				return environment;
+			}).finally(() => { this._environmentFetch = undefined; });
+		}
+		return this._environmentFetch;
+	}
+
 	public async refresh(): Promise<void> {
 		if (!this._view) {
 			return;
@@ -575,14 +591,18 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 		if (rawLists.error) {
 			this._multipassCapabilities = { supportsFedora: false, supportsDebian: false };
 			this._cachedImages = null;
+			this._environmentCheckedAt = 0;
 		} else {
-			this._multipassCapabilities = capabilitiesFromImages(this._cachedImages);
+			this._multipassCapabilities = { ...this._multipassCapabilities, ...capabilitiesFromImages(this._cachedImages) };
+			if (Date.now() - this._environmentCheckedAt >= MULTIPASS_ENVIRONMENT_REFRESH_INTERVAL_MS) {
+				void this.inspectEnvironment().catch(error => console.warn('Environment inspection failed:', error));
+			}
 			if (!this._cachedImages && !this._imagesFetchPending) {
 				this._imagesFetchPending = true;
 				findImages().then(result => {
 					this._cachedImages = result;
 					this._imagesFetchPending = false;
-					const caps = capabilitiesFromImages(result);
+					const caps = { ...this._multipassCapabilities, ...capabilitiesFromImages(result) };
 					this._multipassCapabilities = caps;
 					this._view?.webview.postMessage({ command: 'multipassCapabilities', capabilities: caps } satisfies ExtensionMessage);
 				}).catch(() => {

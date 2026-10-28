@@ -12,6 +12,25 @@ export function registerCommands(
 	provider: MultipassViewProvider,
 	pendingStore: PendingLaunchStore
 ): void {
+	const environmentOutput = vscode.window.createOutputChannel('Multipass Run: Environment');
+	context.subscriptions.push(environmentOutput);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('multipass-run.showEnvironment', async () => {
+			environmentOutput.clear();
+			environmentOutput.appendLine('Inspecting Multipass environment…');
+			environmentOutput.show(true);
+			const environment = await provider.inspectEnvironment();
+			environmentOutput.clear();
+			environmentOutput.appendLine(`Client version: ${environment.clientVersion ?? 'unknown'}`);
+			environmentOutput.appendLine(`Daemon version: ${environment.daemonVersion ?? 'unknown'}`);
+			environmentOutput.appendLine(`Driver: ${environment.driver ?? 'unknown'}`);
+			for (const error of environment.errors) {
+				environmentOutput.appendLine(error);
+			}
+			environmentOutput.show(true);
+		})
+	);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand('multipass-run.focus', async () => {
 			await vscode.commands.executeCommand('workbench.view.extension.multipass-run-sidebar');
