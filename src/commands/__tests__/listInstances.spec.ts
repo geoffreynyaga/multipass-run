@@ -31,7 +31,7 @@ describe('getInstanceLists', () => {
 		const lists = await getInstanceLists();
 
 		expect(runMultipassCommandMock).toHaveBeenCalledWith(
-			['list', '--format', 'json'],
+			['list', '--format', 'json'], {},
 		);
 		expect(lists.active).toEqual([
 			{
@@ -61,4 +61,18 @@ describe('getInstanceLists', () => {
 			message: 'Multipass is not installed on your system',
 		});
 	});
+});
+it('preserves zone membership and availability, including Unavailable VMs and null zones', async () => {
+	runMultipassCommandMock.mockResolvedValueOnce({ stdout: JSON.stringify({ list: [
+		{ name: 'outage-vm', state: 'Unavailable', zone: { name: 'zone2', available: false } },
+		{ name: 'legacy-vm', state: 'Stopped', zone: null },
+	] }), stderr: '' });
+	const result = await getInstanceLists();
+	expect(result.active[0]).toMatchObject({ state: 'Unavailable', zone: { name: 'zone2', available: false } });
+	expect(result.active[1].zone).toBeUndefined();
+});
+
+it('reports malformed VM lists rather than claiming a zone has no VMs', async () => {
+	runMultipassCommandMock.mockResolvedValueOnce({ stdout: '{}', stderr: '' });
+	expect((await getInstanceLists()).error).toBeDefined();
 });

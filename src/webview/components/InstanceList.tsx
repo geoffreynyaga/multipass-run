@@ -1,7 +1,7 @@
 import React from 'react';
 
 import type { MultipassInstanceInfo } from '../../commands/getInstanceInfo';
-import type { InstanceLists } from '../../commands/listInstances';
+import type { InstanceLists, MultipassInstance } from '../../commands/listInstances';
 import type { MultipassSnapshot } from '../../commands/listSnapshots';
 import { MAX_VM_NAME_DISPLAY_CHARS } from '../../shared/constants';
 import type { MultipassCapabilities } from '../../utils/multipassVersion';
@@ -14,6 +14,7 @@ import { InstanceContextMenu } from './InstanceList/InstanceContextMenu';
 import { LaunchOptionsPanel } from './InstanceList/LaunchOptionsPanel';
 
 interface InstanceListProps {
+	onViewZone: (name: string) => void;
 	instanceLists: InstanceLists;
 	instanceInfo: MultipassInstanceInfo | null;
 	ubuntuIconUri: string;
@@ -56,6 +57,7 @@ interface InstanceListProps {
 }
 
 export const InstanceList: React.FC<InstanceListProps> = ({
+	onViewZone,
 	instanceLists,
 	instanceInfo: propInstanceInfo,
 	ubuntuIconUri,
@@ -104,7 +106,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const [showLaunchOptions, setShowLaunchOptions] = React.useState(false);
 	const activeWithOptimistic = React.useMemo(() => {
 		const realNames = new Set(active.map((instance) => instance.name));
-		const synthetic = optimisticLaunches
+		const synthetic: MultipassInstance[] = optimisticLaunches
 			.filter((launch) => !realNames.has(launch.name))
 			.map((launch) => ({
 				name: launch.name,
@@ -171,6 +173,14 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 		onGetInstanceInfo(name);
 		onGetSnapshots(name);
 	};
+
+	// Close stale details after a zone change invalidates their data.
+	React.useEffect(() => {
+		if (!propInstanceInfo) {
+			setExpandedInstance(null);
+			setLoadingInfo(false);
+		}
+	}, [propInstanceInfo]);
 
 	// Reset loading state when info is received
 	React.useEffect(() => {
@@ -307,6 +317,9 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 
 		if (stateLower === 'running') {
 			return { ...baseStyle, color: '#10b981' };
+		}
+		if (stateLower === 'unavailable') {
+			return { ...baseStyle, color: 'var(--vscode-editorWarning-foreground)' };
 		}
 		if (stateLower === 'deleted') {
 			return { ...baseStyle, color: '#6b7280', opacity: 0.6 };
@@ -611,6 +624,11 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 								)}
 							</div>
 
+							{instance.zone && <div className="vm-zone-context">
+								<button type="button" className="vm-zone-link" onClick={() => onViewZone(instance.zone!.name)}
+									aria-label={`View ${instance.zone.name}`}>{instance.zone.name}</button>
+								{!instance.zone.available && ' · Zone unavailable'}
+							</div>}
 							{isExpanded && canExpand && (
 								<div style={{
 									padding: '0',

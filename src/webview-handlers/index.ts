@@ -9,12 +9,15 @@ import { handleAddMount, handleRemoveMount } from './mounts';
 import { handleCancelPendingLaunch, handleClearPendingLaunch, handleRetryPendingLaunch } from './pending';
 import { handleRecoverAndShellInstance,handleSetupSSHInstance, handleShellInstance, handleStartAndShellInstance } from './shell';
 import { handleDeleteSnapshot,handleGetSnapshots, handleRestoreSnapshot, handleTakeSnapshot } from './snapshots';
+import { handleGetZones, handleSetZoneAvailability } from './zones';
 
 type Handler<M> = (msg: M, ctx: HandlerContext) => Promise<void>;
 
 // One entry per command; a missing or misspelled command fails to compile.
 const HANDLERS: { [C in WebviewCommand]: Handler<Extract<WebviewMessage, { command: C }>> } = {
 	refreshList:                 async (_m, ctx) => ctx.refresh(),
+	getZones:                    handleGetZones,
+	setZoneAvailability:         handleSetZoneAvailability,
 	downloadMultipass:           handleDownloadMultipass,
 	installMultipassViaTerminal: handleInstallViaTerminal,
 	copyInstallCommand:          handleCopyInstallCommand,
