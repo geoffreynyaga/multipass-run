@@ -40,7 +40,7 @@ const App: React.FC = () => {
 	const [instanceInfo, setInstanceInfo] = useState<MultipassInstanceInfo | null>(null);
 	const [snapshotsByInstance, setSnapshotsByInstance] = useState<Record<string, MultipassSnapshot[]>>({});
 	const [multipassCapabilities, setMultipassCapabilities] = useState<MultipassCapabilities>(
-		window.multipassCapabilities || { supportsAlternativeDistros: false }
+		window.multipassCapabilities || { supportsFedora: false, supportsDebian: false }
 	);
 	const [installPlan, setInstallPlan] = useState<InstallPlan | null>(window.installPlan || null);
 	const [inlineImageOptions, setInlineImageOptions] = useState<InlineImageOption[]>([]);

@@ -32,7 +32,7 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 	const [isSubmitting, setIsSubmitting] = React.useState(false);
 	const imagePickerRef = React.useRef<HTMLDivElement | null>(null);
 	const isCustom = mode === 'custom';
-	const supportsAlternativeDistros = multipassCapabilities.supportsAlternativeDistros;
+	const { supportsFedora, supportsDebian } = multipassCapabilities;
 	const distroIcons: Record<InlineLaunchConfig['distro'], string> = {
 		ubuntu: ubuntuIconUri || ubuntuDarkIconUri,
 		fedora: fedoraIconUri || fedoraDarkIconUri,
@@ -100,6 +100,12 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 		textAlign: 'left',
 		cursor: 'pointer'
 	};
+
+	React.useEffect(() => {
+		if ((distro === 'fedora' && !supportsFedora) || (distro === 'debian' && !supportsDebian)) {
+			setDistro('ubuntu');
+		}
+	}, [distro, supportsFedora, supportsDebian]);
 
 	React.useEffect(() => {
 		if (isCustom) {
@@ -223,17 +229,17 @@ export const InlineLaunchForm: React.FC<InlineLaunchFormProps> = ({
 							{distroIcons.ubuntu ? <img src={distroIcons.ubuntu} alt="" style={distroIconStyle} /> : <span aria-hidden="true">*</span>}
 							Ubuntu
 						</button>
-						{supportsAlternativeDistros && (
-							<>
-								<button type="button" style={distroButtonStyle('fedora')} onClick={() => setDistro('fedora')}>
-									{distroIcons.fedora ? <img src={distroIcons.fedora} alt="" style={distroIconStyle} /> : <span aria-hidden="true">*</span>}
-									Fedora
-								</button>
-								<button type="button" style={distroButtonStyle('debian')} onClick={() => setDistro('debian')}>
-									{distroIcons.debian ? <img src={distroIcons.debian} alt="" style={distroIconStyle} /> : <span aria-hidden="true">*</span>}
-									Debian
-								</button>
-							</>
+						{supportsFedora && (
+							<button type="button" style={distroButtonStyle('fedora')} onClick={() => setDistro('fedora')}>
+								{distroIcons.fedora && <img src={distroIcons.fedora} alt="" style={distroIconStyle} />}
+								Fedora
+							</button>
+						)}
+						{supportsDebian && (
+							<button type="button" style={distroButtonStyle('debian')} onClick={() => setDistro('debian')}>
+								{distroIcons.debian && <img src={distroIcons.debian} alt="" style={distroIconStyle} />}
+								Debian
+							</button>
 						)}
 					</div>
 				</div>

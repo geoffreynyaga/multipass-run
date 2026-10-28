@@ -80,6 +80,11 @@ export function buildImageOptions(
 	}));
 }
 
+// Keep Ubuntu first, with its latest LTS first, then the other available distros.
+export function buildLaunchImageOptions(images: Record<string, MultipassImage>): MultipassImageOption[] {
+	return (['ubuntu', 'fedora', 'debian'] as const).flatMap((distro) => buildImageOptions(images, distro));
+}
+
 export function pickImageForDistro(
 	images: Record<string, MultipassImage>,
 	distro: MultipassDistro

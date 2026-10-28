@@ -39,14 +39,23 @@ export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConf
 		vscode.window.showErrorMessage(`Instance '${instanceName}' already exists. Please choose a different name.`);
 		return;
 	}
-	if (config.distro !== 'ubuntu' && !ctx.multipassCapabilities.supportsAlternativeDistros) {
-		vscode.window.showErrorMessage('Fedora and Debian images require Multipass 1.17 or newer.');
-		return;
-	}
 
 	const imagesResult = await findImages();
 	if (!imagesResult) {
 		vscode.window.showErrorMessage('Failed to fetch available Multipass images.');
+		return;
+	}
+	const capabilities = capabilitiesFromImages(imagesResult);
+	ctx.setCachedImages(imagesResult);
+	ctx.setMultipassCapabilities(capabilities);
+	ctx.postMessage({ command: 'multipassCapabilities', capabilities });
+	const distroImages = buildImageOptions(imagesResult.images, config.distro);
+	if (config.distro !== 'ubuntu' && distroImages.length === 0) {
+		vscode.window.showErrorMessage(`No ${config.distro} image was found in multipass find. Refresh the image list and choose an available distro.`);
+		return;
+	}
+	if (config.image && !distroImages.some((option) => option.imageKey === config.image)) {
+		vscode.window.showErrorMessage(`The selected image is no longer available for ${config.distro}. Refresh the image list and choose another image.`);
 		return;
 	}
 	const selectedImage = config.image ? imagesResult.images[config.image] : undefined;
@@ -180,7 +189,9 @@ export async function handleGetInlineImageOptions(msg: { distro?: string }, ctx:
 		imagesResult = await findImages();
 		if (imagesResult) {
 			ctx.setCachedImages(imagesResult);
-			ctx.setMultipassCapabilities(capabilitiesFromImages(imagesResult));
+			const capabilities = capabilitiesFromImages(imagesResult);
+			ctx.setMultipassCapabilities(capabilities);
+			ctx.postMessage({ command: 'multipassCapabilities', capabilities });
 		}
 	}
 	if (!imagesResult) {
