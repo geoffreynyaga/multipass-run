@@ -1,5 +1,30 @@
 # Change Log
 
+## [Unreleased]
+
+### Added
+- VMs / Zones tabs with zone availability, subnets, and VM membership.
+  Disable confirms the affected VMs before simulating an outage; Enable
+  restores availability. Zone state refreshes while the tab is visible.
+- Client/daemon version and driver detection, with a **Show Environment**
+  command for inspection.
+- Backend-aware snapshot and suspend controls. Unsupported AppleVZ actions
+  are disabled, and backend support is rechecked before operations.
+- README native-backend guidance, limitations, and an explicit backend
+  verification matrix for HCS, AppleVZ, QEMU, and deprecated drivers.
+
+### Changed
+- Fedora and Debian availability is detected independently. Both Command
+  Palette image pickers include available distros and prefer the newest
+  Ubuntu LTS instead of hardcoding 24.04.
+- Custom launches require at least 512M RAM and 1G disk.
+- VM rows link to their zone, including when the zone is unavailable.
+
+### Fixed
+- Missing or mismatched image selections are rejected before launch.
+- Unknown backend support cannot silently enable snapshot or suspend
+  actions; failed suspend requests clear their pending UI state.
+
 ## [0.0.5] - 2026-05-10
 
 ### Added

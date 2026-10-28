@@ -9,6 +9,7 @@ import { stopInstance } from '../commands/stopInstance';
 import { suspendInstance } from '../commands/suspendInstance';
 import { pollInstanceStatus } from '../extension-utils/instancePolling';
 import { removeSSHConfigForInstance } from '../utils/sshConfig';
+import { backendActionError } from './backend';
 import type { HandlerContext } from './context';
 
 export async function handleGetInstanceInfo(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
@@ -40,7 +41,14 @@ export async function handleStopInstance(msg: { instanceName: string }, ctx: Han
 }
 
 export async function handleSuspendInstance(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
+	const backendError = await backendActionError('suspend', ctx);
+	if (backendError) {
+		vscode.window.showErrorMessage(backendError);
+		ctx.postMessage({ command: 'suspendActionResult', instanceName: msg.instanceName, success: false });
+		return;
+	}
 	const result = await suspendInstance(msg.instanceName);
+	ctx.postMessage({ command: 'suspendActionResult', instanceName: msg.instanceName, success: result.success });
 	if (result.success) {
 		vscode.window.showInformationMessage(`Instance '${msg.instanceName}' is suspending...`);
 		setTimeout(async () => {

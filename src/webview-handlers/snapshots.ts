@@ -4,9 +4,14 @@ import { deleteSnapshot } from '../commands/deleteSnapshot';
 import { listSnapshots } from '../commands/listSnapshots';
 import { restoreSnapshot } from '../commands/restoreSnapshot';
 import { takeSnapshot } from '../commands/takeSnapshot';
+import { backendActionError } from './backend';
 import type { HandlerContext } from './context';
 
 export async function handleGetSnapshots(msg: { instanceName: string }, ctx: HandlerContext): Promise<void> {
+	if (await backendActionError('snapshots', ctx)) {
+		ctx.postMessage({ command: 'snapshots', instanceName: msg.instanceName, snapshots: [] });
+		return;
+	}
 	const snapshots = await listSnapshots(msg.instanceName);
 	ctx.postMessage({ command: 'snapshots', instanceName: msg.instanceName, snapshots });
 }
@@ -15,6 +20,13 @@ export async function handleTakeSnapshot(
 	msg: { instanceName: string; name?: string; comment?: string },
 	ctx: HandlerContext
 ): Promise<void> {
+	const backendError = await backendActionError('snapshots', ctx);
+	if (backendError) {
+		vscode.window.showErrorMessage(backendError);
+		ctx.postMessage({ command: 'snapshotActionResult', instanceName: msg.instanceName, action: 'take', success: false, error: backendError });
+		return;
+	}
+
 	const result = await takeSnapshot(msg.instanceName, {
 		name: msg.name,
 		comment: msg.comment,
@@ -41,6 +53,13 @@ export async function handleRestoreSnapshot(
 	msg: { instanceName: string; snapshotName: string },
 	ctx: HandlerContext
 ): Promise<void> {
+	const backendError = await backendActionError('snapshots', ctx);
+	if (backendError) {
+		vscode.window.showErrorMessage(backendError);
+		ctx.postMessage({ command: 'snapshotActionResult', instanceName: msg.instanceName, action: 'restore', success: false, error: backendError });
+		return;
+	}
+
 	const confirmed = await vscode.window.showWarningMessage(
 		`Restore '${msg.instanceName}' to snapshot '${msg.snapshotName}'? This discards the instance's current state.`,
 		{ modal: true },
@@ -80,6 +99,13 @@ export async function handleDeleteSnapshot(
 	msg: { instanceName: string; snapshotName: string },
 	ctx: HandlerContext
 ): Promise<void> {
+	const backendError = await backendActionError('snapshots', ctx);
+	if (backendError) {
+		vscode.window.showErrorMessage(backendError);
+		ctx.postMessage({ command: 'snapshotActionResult', instanceName: msg.instanceName, action: 'delete', success: false, error: backendError });
+		return;
+	}
+
 	const confirmed = await vscode.window.showWarningMessage(
 		`Delete snapshot '${msg.snapshotName}' of '${msg.instanceName}'? This cannot be undone.`,
 		{ modal: true },
