@@ -3,6 +3,7 @@ import React from 'react';
 import type { MultipassInstanceInfo } from '../../commands/getInstanceInfo';
 import type { InstanceLists, MultipassInstance } from '../../commands/listInstances';
 import type { MultipassSnapshot } from '../../commands/listSnapshots';
+import { getBackendSupport } from '../../shared/backendCapabilities';
 import { MAX_VM_NAME_DISPLAY_CHARS } from '../../shared/constants';
 import type { MultipassCapabilities } from '../../utils/multipassVersion';
 import type { InlineImageOption, InlineLaunchConfig } from '../App';
@@ -97,6 +98,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	onDeleteSnapshot
 }) => {
 	const { active, deleted } = instanceLists;
+	const backendSupport = getBackendSupport(multipassCapabilities.environment);
 	const [optimisticLaunches, setOptimisticLaunches] = React.useState<Array<{ name: string; release: string }>>([]);
 	const [expandedInstance, setExpandedInstance] = React.useState<string | null>(null);
 	const [loadingInfo, setLoadingInfo] = React.useState(false);
@@ -171,8 +173,15 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 	const fetchInstanceInfo = (name: string) => {
 		setLoadingInfo(true);
 		onGetInstanceInfo(name);
-		onGetSnapshots(name);
 	};
+
+	// Detection can finish after a VM is expanded; fetch snapshots once support
+	// is known, including when switching back from an unsupported backend.
+	React.useEffect(() => {
+		if (expandedInstance && backendSupport.snapshots === true) {
+			onGetSnapshots(expandedInstance);
+		}
+	}, [expandedInstance, backendSupport.snapshots, onGetSnapshots]);
 
 	// Close stale details after a zone change invalidates their data.
 	React.useEffect(() => {
@@ -638,6 +647,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 										<div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--vscode-descriptionForeground)', fontFamily: 'Inter, system-ui, -apple-system, sans-serif', padding: '20px 0' }}>Loading details...</div>
 									) : instanceInfo ? (
 										<InstanceDetails
+											backendSupport={backendSupport}
 											info={instanceInfo}
 											currentState={instance.state}
 											snapshots={snapshotsByInstance[instance.name] || []}
@@ -711,6 +721,7 @@ export const InstanceList: React.FC<InstanceListProps> = ({
 
 			{contextMenu && (
 				<InstanceContextMenu
+					backendSupport={backendSupport}
 					contextMenu={contextMenu}
 					onClose={() => setContextMenu(null)}
 					onShellInstance={onShellInstance}

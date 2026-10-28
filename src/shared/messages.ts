@@ -68,6 +68,7 @@ export type WebviewCommand = WebviewMessage['command'];
 
 /** Sent by the extension, handled in webview/App.tsx. */
 export type ExtensionMessage =
+	| { command: 'suspendActionResult'; instanceName: string; success: boolean }
 	| { command: 'zones'; result: ZonesResult }
 	| { command: 'zoneActionResult'; zoneName: string; success: boolean; cancelled?: boolean; error?: string }
 	| { command: 'updateInstances'; instanceLists: InstanceLists }

@@ -150,7 +150,9 @@ const App: React.FC = () => {
 	const handleAddMount = (name: string) => post({ command: 'addMount', instanceName: name });
 	const handleRemoveMount = (name: string, guestPath: string) =>
 		post({ command: 'removeMount', instanceName: name, guestPath });
-	const handleGetSnapshots = (name: string) => post({ command: 'getSnapshots', instanceName: name });
+	const handleGetSnapshots = React.useCallback((name: string) => {
+		vscode.postMessage({ command: 'getSnapshots', instanceName: name } satisfies WebviewMessage);
+	}, []);
 	const handleTakeSnapshot = (name: string, snapshotName?: string, comment?: string) =>
 		post({ command: 'takeSnapshot', instanceName: name, name: snapshotName, comment });
 	const handleRestoreSnapshot = (name: string, snapshotName: string) =>

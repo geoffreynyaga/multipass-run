@@ -149,6 +149,7 @@ export class MultipassViewProvider implements vscode.WebviewViewProvider {
 			setCachedImages: (images) => { self._cachedImages = images; },
 			setMultipassCapabilities: (caps) => { self._multipassCapabilities = { ...self._multipassCapabilities, ...caps }; },
 			refresh: () => self.refresh(),
+			inspectEnvironment: () => self.inspectEnvironment(),
 			createDefaultInstance: () => self.createDefaultInstance(),
 			createDetailedInstance: () => self.createDetailedInstance(),
 			launchCloudInitFromSidebar: () => self.launchCloudInitFromSidebar(),

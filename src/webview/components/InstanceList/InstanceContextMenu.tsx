@@ -1,5 +1,7 @@
 import React from 'react';
 
+import type { BackendSupport } from '../../../shared/backendCapabilities';
+
 export interface InstanceContextMenuState {
 	x: number;
 	y: number;
@@ -8,6 +10,7 @@ export interface InstanceContextMenuState {
 }
 
 interface InstanceContextMenuProps {
+	backendSupport: BackendSupport;
 	contextMenu: InstanceContextMenuState;
 	onClose: () => void;
 	onShellInstance: (name: string) => void;
@@ -25,16 +28,21 @@ interface InstanceContextMenuProps {
 interface MenuItemProps {
 	children: React.ReactNode;
 	danger?: boolean;
+	disabled?: boolean;
+	title?: string;
 	separator?: boolean;
 	onClick: () => void;
 }
 
-const MenuItem: React.FC<MenuItemProps> = ({ children, danger = false, separator = false, onClick }) => (
+const MenuItem: React.FC<MenuItemProps> = ({ children, danger = false, disabled = false, title, separator = false, onClick }) => (
 	<div
-		onClick={onClick}
+		onClick={disabled ? undefined : onClick}
+		aria-disabled={disabled}
+		title={title}
 		style={{
 			padding: '6px 12px',
-			cursor: 'pointer',
+			cursor: disabled ? 'default' : 'pointer',
+			opacity: disabled ? 0.5 : 1,
 			fontSize: '12px',
 			color: danger ? 'var(--vscode-errorForeground)' : 'var(--vscode-menu-foreground)',
 			display: 'flex',
@@ -45,6 +53,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ children, danger = false, separator
 			paddingTop: separator ? '8px' : '6px',
 		}}
 		onMouseOver={(e) => {
+			if (disabled) { return; }
 			e.currentTarget.style.background = 'var(--vscode-menu-selectionBackground)';
 			if (!danger) {
 				e.currentTarget.style.color = 'var(--vscode-menu-selectionForeground)';
@@ -62,6 +71,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ children, danger = false, separator
 );
 
 export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
+	backendSupport,
 	contextMenu,
 	onClose,
 	onShellInstance,
@@ -106,7 +116,7 @@ export const InstanceContextMenu: React.FC<InstanceContextMenuProps> = ({
 			{state === 'running' && (
 				<>
 					<MenuItem onClick={() => runAndClose(onShellInstance)}>Open Shell</MenuItem>
-					<MenuItem onClick={() => runAndClose(onSuspendInstance)}><span>⏸</span> Pause (Suspend)</MenuItem>
+					<MenuItem disabled={backendSupport.suspend !== true} title={backendSupport.suspendReason} onClick={() => runAndClose(onSuspendInstance)}><span>⏸</span> Pause (Suspend)</MenuItem>
 					<MenuItem onClick={() => runAndClose(onStopInstance)}><span>⏹</span> Stop Instance</MenuItem>
 				</>
 			)}
