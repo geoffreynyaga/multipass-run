@@ -47,3 +47,12 @@ it('uses the fresh catalog even when cached capabilities did not offer Fedora', 
 	expect(ctx.setMultipassCapabilities).toHaveBeenCalledWith({ supportsFedora: true, supportsDebian: false });
 	expect(ctx.postMessage).toHaveBeenCalledWith({ command: 'multipassCapabilities', capabilities: { supportsFedora: true, supportsDebian: false } });
 });
+
+it('preserves detected backend information when refreshing distro capabilities', async () => {
+	const ctx = context();
+	const environment = { clientVersion: '1.17.0', daemonVersion: '1.17.0', driver: 'applevz', errors: [] };
+	ctx.multipassCapabilities.environment = environment;
+	await handleLaunchInlineInstance({ config: { mode: 'quick', distro: 'fedora' } }, ctx);
+	expect(ctx.setMultipassCapabilities).toHaveBeenCalledWith({ supportsFedora: true, supportsDebian: false, environment });
+	expect(ctx.postMessage).toHaveBeenCalledWith({ command: 'multipassCapabilities', capabilities: { supportsFedora: true, supportsDebian: false, environment } });
+});

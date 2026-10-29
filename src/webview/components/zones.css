@@ -1,0 +1,66 @@
+/* Extend the compact, separator-led claude-design sidebar language. */
+.workspace-tabs {
+	display: flex;
+	gap: 20px;
+	padding: 0 16px;
+	border-bottom: 1px solid var(--vscode-panel-border, rgba(127,127,127,.25));
+	font-family: Ubuntu, system-ui, sans-serif;
+}
+.workspace-tabs button {
+	background: transparent;
+	color: var(--vscode-descriptionForeground);
+	border: 0;
+	border-bottom: 2px solid transparent;
+	padding: 12px 2px 10px;
+	font: inherit;
+	font-size: 13px;
+	cursor: pointer;
+}
+.workspace-tabs button[aria-selected="true"] {
+	color: var(--vscode-foreground);
+	border-bottom-color: #e95420;
+}
+.workspace-tabs button:hover { color: var(--vscode-foreground); }
+.workspace-tabs button:focus-visible, .zone-refresh:focus-visible, .zone-button:focus-visible, .vm-zone-link:focus-visible, .zone-row:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 3px;
+}
+.zones-view { padding: 6px 16px 24px; font: 13px/1.5 Ubuntu, system-ui, sans-serif; color: var(--vscode-foreground); }
+.zone-row-heading, .zone-row-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zones-toolbar { display: flex; justify-content: flex-end; }
+.zone-refresh { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 3px; background: transparent; color: var(--vscode-descriptionForeground); cursor: pointer; }
+.zone-refresh:hover:enabled { background: var(--vscode-toolbar-hoverBackground); color: var(--vscode-foreground); }
+.zone-refresh:disabled { opacity: .6; cursor: default; }
+.zone-list, .zone-members { list-style: none; padding: 0; margin: 0; }
+.zone-row { padding: 14px 0; border-top: 1px solid var(--vscode-panel-border, rgba(127,127,127,.25)); }
+.zone-row:first-child { border-top: 0; padding-top: 4px; }
+.zone-row-selected { background: var(--vscode-list-inactiveSelectionBackground); }
+.zone-row h3 { font-family: 'Ubuntu Mono', Consolas, monospace; font-size: 15px; font-weight: 400; margin: 0; overflow-wrap: anywhere; }
+.zone-status { font-size: 12px; flex-shrink: 0; }
+.zone-available { color: var(--vscode-testing-iconPassed, #388a34); }
+.zone-unavailable { color: var(--vscode-editorWarning-foreground); }
+.zone-row-summary { margin-top: 8px; flex-wrap: wrap; }
+.zone-subnet { font: 12px/1.5 'Ubuntu Mono', Consolas, monospace; color: var(--vscode-descriptionForeground); overflow-wrap: anywhere; }
+.zone-button {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	border: 1px solid var(--vscode-button-border, transparent);
+	border-radius: 3px;
+	padding: 4px 10px;
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.zone-button:hover:enabled { background: var(--vscode-button-secondaryHoverBackground); }
+.zone-button:disabled { opacity: .6; cursor: default; }
+.zone-members { margin-top: 8px; font-size: 12px; }
+.zone-members li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-top: 5px; color: var(--vscode-descriptionForeground); }
+.zone-vm-name { color: var(--vscode-foreground); font-family: 'Ubuntu Mono', Consolas, monospace; overflow-wrap: anywhere; min-width: 0; }
+.zones-error { color: var(--vscode-errorForeground); overflow-wrap: anywhere; }
+.zones-error p { margin: 8px 0; }
+.vm-zone-context { margin: 6px 0 10px; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.vm-zone-link { border: 0; padding: 2px 0; background: transparent; color: var(--vscode-textLink-foreground); cursor: pointer; font: inherit; }
+.vm-zone-link:hover { text-decoration: underline; }
+
+.zones-warning { display: flex; align-items: flex-start; gap: 8px; padding: 10px; margin-top: 12px; border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground)); border-radius: 3px; background: var(--vscode-inputValidation-errorBackground); color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground)); font-size: 12px; }
+.zones-warning svg { flex-shrink: 0; margin-top: 1px; }

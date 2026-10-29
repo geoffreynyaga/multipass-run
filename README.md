@@ -12,7 +12,7 @@ VS Code extension for managing Multipass virtual machine instances from the side
 
 - Manage Ubuntu, Fedora, Debian, and Ubuntu Core instances from the sidebar.
 - Create instances with default, custom, or cloud-init configurations.
-- Take, list, restore, and delete snapshots on stopped instances.
+- Take, list, restore, and delete snapshots on supported backends (take/restore require a stopped VM).
 - Mount and unmount host folders per instance.
 - Connect with Remote-SSH using a generated ed25519 key.
 
@@ -58,6 +58,51 @@ For Multipass lifecycle, mounts, snapshots, and cloud-init workflows, use the up
 
 The extension generates an ed25519 key pair on first use and writes a wrapped block into `~/.ssh/config`. To connect, click **SSH** in the instance detail panel.
 
+### Native virtualization backends
+
+Multipass supplies the virtualization backend; the extension reads `local.driver`
+and uses Multipass commands to manage its VMs.
+
+- **Windows HCS (`hcs`)** is the native Host Compute System backend introduced
+  in Multipass 1.17. New installations use it by default. Existing installations
+  keep their selected driver until changed; follow the
+  [Hyper-V to HCS migration guide](https://canonical.com/multipass/docs/latest/how-to-guides/customise-multipass/migrate-from-hyperv-to-hcs-on-windows/)
+  to migrate stopped Hyper-V VMs. Hyper-V and VirtualBox are deprecated in 1.17.
+- **Apple Virtualization (`applevz`)** is an opt-in preview backend on macOS in
+  Multipass 1.17. QEMU remains the default. See
+  [driver setup](https://canonical.com/multipass/docs/latest/how-to-guides/customise-multipass/set-up-the-driver/)
+  for configuration and driver-specific VM scopes.
+
+Run **Multipass Run: Show Environment** in the Command Palette to inspect the
+client version, daemon version, and configured driver. The extension does not
+switch drivers or migrate VMs. Driver changes can change which VMs are visible.
+
+## Limitations
+
+- **AppleVZ in Multipass 1.17 has no snapshots, suspend, or native mounts.** The
+  extension disables suspend controls and replaces snapshot actions with an
+  explanation on AppleVZ. It also rechecks the backend before snapshot and
+  suspend operations, so stale sidebar state cannot bypass those checks.
+- **Unknown backend support:** if driver or daemon detection fails, snapshot and
+  suspend actions stay unavailable. Run **Show Environment** to inspect the
+  error and retry detection.
+- **Mounts:** the extension uses classic mounts. It does not offer a native-mount
+  selector. Classic mounts remain available on AppleVZ, subject to Multipass's
+  guest and host requirements.
+- **Backend verification is incomplete.** Driver detection and capability
+  rules do not establish integration-test coverage. The rules follow the
+  [Multipass 1.17 driver matrix](https://github.com/canonical/multipass/blob/v1.17.0/docs/explanation/driver.md#feature-disparities);
+  older or future daemon versions may differ.
+
+| Backend / host | Extension verification |
+|---|---|
+| QEMU / macOS | VM listing, launch, distro selection, and zone enable/disable exercised locally. Snapshot/suspend checks remain to be verified locally. |
+| QEMU / Linux | No complete backend integration run recorded for this change. |
+| HCS / Windows | Capability rules covered by unit tests; native integration not exercised. |
+| AppleVZ / macOS | Unsupported-action rules covered by unit and UI tests; native integration not exercised. |
+| Hyper-V / VirtualBox | Deprecated by Multipass 1.17; integration not exercised for this change. |
+
+
 ## Reference
 
 ### Commands
@@ -66,6 +111,7 @@ The extension generates an ed25519 key pair on first use and writes a wrapped bl
 |---|---|
 | Refresh instance list | `multipass-run.refresh` |
 | Create instance menu | `multipass-run.createInstanceMenu` |
+| Show environment | `multipass-run.showEnvironment` |
 | Prune orphaned SSH entries | `Multipass: Prune Orphaned SSH Entries` |
 
 ### Instance states

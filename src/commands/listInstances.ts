@@ -1,10 +1,16 @@
 import { runMultipassCommand } from '../utils/multipassExecutable';
 
+export interface VMZone {
+	name: string;
+	available: boolean;
+}
+
 export interface MultipassInstance {
 	name: string;
 	state: string;
 	ipv4: string;
 	release: string;
+	zone?: VMZone;
 }
 
 /** Shape of a single entry in `multipass list --format json`. */
@@ -13,6 +19,7 @@ interface RawMultipassInstance {
 	state?: string;
 	ipv4?: string[];
 	release?: string;
+	zone?: VMZone | null;
 }
 
 export interface InstanceLists {
@@ -29,13 +36,13 @@ export async function getInstances(): Promise<MultipassInstance[]> {
 	return lists.active;
 }
 
-export async function getInstanceLists(): Promise<InstanceLists> {
+export async function getInstanceLists(options: { timeout?: number } = {}): Promise<InstanceLists> {
 	try {
 		let stdout = '';
 		let lastError: unknown = null;
 
 		try {
-			const result = await runMultipassCommand(['list', '--format', 'json']);
+			const result = await runMultipassCommand(['list', '--format', 'json'], options);
 			stdout = result.stdout;
 		} catch (err) {
 			lastError = err;
@@ -97,7 +104,9 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 				name: instance.name || 'Unknown',
 				state: instance.state || 'Unknown',
 				ipv4: instance.ipv4?.[0] || '',
-				release: instance.release || 'N/A'
+				release: instance.release || 'N/A',
+				...(instance.zone && typeof instance.zone.name === 'string' && typeof instance.zone.available === 'boolean'
+					? { zone: { name: instance.zone.name, available: instance.zone.available } } : {})
 			}));
 
 			return {
@@ -109,7 +118,7 @@ export async function getInstanceLists(): Promise<InstanceLists> {
 				)
 			};
 		}
-		return { active: [], deleted: [] };
+		return { active: [], deleted: [], error: { type: 'other', message: 'Invalid VM list response.' } };
 	} catch (error) {
 		console.error('Error fetching Multipass instances:', error);
 		return { 

@@ -2,9 +2,12 @@ import React from 'react';
 
 import type { MultipassInstanceInfo } from '../../commands/getInstanceInfo';
 import type { MultipassSnapshot } from '../../commands/listSnapshots';
+import type { BackendSupport } from '../../shared/backendCapabilities';
+import type { ExtensionMessage } from '../../shared/messages';
 import { getMonoFont } from '../utils/fontUtils';
 
 interface InstanceDetailsProps {
+	backendSupport: BackendSupport;
 	info: MultipassInstanceInfo;
 	currentState?: string;
 	snapshots: MultipassSnapshot[];
@@ -94,11 +97,12 @@ const Divider: React.FC = () => (
 
 const ActionBtn: React.FC<{
 	primary?: boolean;
+	disabled?: boolean;
 	onClick: (e: React.MouseEvent) => void;
 	title: string;
 	flex?: boolean;
 	children: React.ReactNode;
-}> = ({ primary, onClick, title, flex, children }) => {
+}> = ({ primary, disabled, onClick, title, flex, children }) => {
 	const [hover, setHover] = React.useState(false);
 	const base: React.CSSProperties = {
 		display: 'inline-flex',
@@ -111,7 +115,8 @@ const ActionBtn: React.FC<{
 		fontWeight: 500,
 		borderRadius: 3,
 		border: '1px solid',
-		cursor: 'pointer',
+		cursor: disabled ? 'default' : 'pointer',
+		opacity: disabled ? 0.5 : 1,
 		flex: flex ? 1 : undefined,
 		lineHeight: 1.2,
 		whiteSpace: 'nowrap',
@@ -134,6 +139,7 @@ const ActionBtn: React.FC<{
 		<button
 			type="button"
 			title={title}
+			disabled={disabled}
 			onClick={onClick}
 			onMouseEnter={() => setHover(true)}
 			onMouseLeave={() => setHover(false)}
@@ -474,6 +480,7 @@ const SnapshotSection: React.FC<SnapshotSectionProps> = ({
 };
 
 export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
+	backendSupport,
 	info,
 	currentState,
 	snapshots,
@@ -496,6 +503,17 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 	const monoFont = getMonoFont();
 	const [pending, setPending] = React.useState<PendingAction>(null);
 	const authoritativeState = (currentState || info.state || '').toLowerCase();
+
+	React.useEffect(() => {
+		const clearFailedSuspend = (event: MessageEvent<ExtensionMessage>) => {
+			const message = event.data;
+			if (message.command === 'suspendActionResult' && message.instanceName === info.name && !message.success) {
+				setPending(current => current === 'suspending' ? null : current);
+			}
+		};
+		window.addEventListener('message', clearFailedSuspend);
+		return () => window.removeEventListener('message', clearFailedSuspend);
+	}, [info.name]);
 
 	// Clear pending once authoritative state resolves to a stable target
 	React.useEffect(() => {
@@ -599,11 +617,11 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 									}} title="Stop instance">
 										<StopIcon />
 									</ActionBtn>
-									<ActionBtn onClick={(e) => {
+									<ActionBtn disabled={backendSupport.suspend !== true} onClick={(e) => {
 										stop(e);
 										setPending('suspending');
 										onSuspend(info.name);
-									}} title="Suspend instance">
+									}} title={backendSupport.suspendReason || 'Suspend instance'}>
 										<PauseIcon />
 									</ActionBtn>
 								</>
@@ -743,7 +761,7 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 			{!isDeleted && (
 				<>
 					<Divider />
-					<SnapshotSection
+					{backendSupport.snapshots === true ? <SnapshotSection
 						instanceName={info.name}
 						snapshots={snapshots}
 						canTake={isStopped}
@@ -752,7 +770,9 @@ export const InstanceDetails: React.FC<InstanceDetailsProps> = ({
 						onRestore={onRestoreSnapshot}
 						onDelete={onDeleteSnapshot}
 						monoFont={monoFont}
-					/>
+					/> : <div style={{ padding: '10px 14px', fontSize: 11, color: DIM, fontFamily: UI_FONT }}>
+						{backendSupport.snapshotReason}
+					</div>}
 				</>
 			)}
 

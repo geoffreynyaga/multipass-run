@@ -5,7 +5,7 @@ import type { TerminalManager } from '../extension-utils/terminalManager';
 import type { ExtensionMessage } from '../shared/messages';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { FindImagesResult } from '../utils/multipassImages';
-import type { MultipassCapabilities } from '../utils/multipassVersion';
+import type { MultipassCapabilities, MultipassEnvironment } from '../utils/multipassVersion';
 
 export interface HandlerContext {
 	readonly view: vscode.WebviewView;
@@ -18,6 +18,7 @@ export interface HandlerContext {
 	setCachedImages(images: FindImagesResult | null): void;
 	setMultipassCapabilities(caps: MultipassCapabilities): void;
 	refresh(): Promise<void>;
+	inspectEnvironment(): Promise<MultipassEnvironment>;
 	createDefaultInstance(): Promise<void>;
 	createDetailedInstance(): Promise<void>;
 	launchCloudInitFromSidebar(): Promise<void>;

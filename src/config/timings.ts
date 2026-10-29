@@ -48,6 +48,10 @@ export const SSH_PROBE_TIMEOUT_MS = 15000;
 // multipass daemon time to respond to its first list query.
 export const AUTO_PRUNE_DELAY_MS = 3000;
 
+// Environment inspection is read-only and must not hold up normal sidebar use.
+export const MULTIPASS_ENVIRONMENT_TIMEOUT_MS = 10000;
+export const MULTIPASS_ENVIRONMENT_REFRESH_INTERVAL_MS = 30000;
+
 // ─── Inline-form launches (potentially unnamed) ─────────────────────────────
 // Multipass picks a random name during launch when no --name is passed, so we
 // can't seed an optimistic placeholder. Poll `multipass list` periodically
@@ -55,3 +59,6 @@ export const AUTO_PRUNE_DELAY_MS = 3000;
 // protects against a hung CLI keeping the interval alive forever.
 export const INLINE_LAUNCH_REFRESH_INTERVAL_MS = 2000;
 export const INLINE_LAUNCH_MAX_DURATION_MS = 10 * 60 * 1000;
+
+// Zone reads must not leave controls busy.
+export const ZONE_QUERY_TIMEOUT_MS = 10000;

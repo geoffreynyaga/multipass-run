@@ -21,6 +21,11 @@
   "contributes": {
     "commands": [
       {
+        "command": "multipass-run.showEnvironment",
+        "title": "Show Environment",
+        "category": "Multipass Run"
+      },
+      {
         "command": "multipass-run.refresh",
         "title": "Refresh Multipass Instances",
         "icon": "$(refresh)"
@@ -64,7 +69,7 @@
       "multipass-run-sidebar": [
         {
           "id": "multipass-run-view",
-          "name": "Instances",
+          "name": "Multipass",
           "type": "webview",
           "icon": "media/icon.svg"
         }

@@ -4,6 +4,7 @@
 import type { MultipassInstanceInfo } from '../commands/getInstanceInfo';
 import type { InstanceLists } from '../commands/listInstances';
 import type { MultipassSnapshot } from '../commands/listSnapshots';
+import type { ZonesResult } from '../commands/zones';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { MultipassDistro, MultipassImageOption } from '../utils/multipassImages';
 import type { MultipassCapabilities } from '../utils/multipassVersion';
@@ -39,6 +40,7 @@ type InstanceCommand =
 
 type PlainCommand =
 	| 'refreshList'
+	| 'getZones'
 	| 'downloadMultipass'
 	| 'installMultipassViaTerminal'
 	| 'copyInstallCommand'
@@ -53,6 +55,7 @@ type PlainCommand =
 /** Sent by the webview, handled in webview-handlers/. */
 export type WebviewMessage =
 	| { command: PlainCommand }
+	| { command: 'setZoneAvailability'; zoneName: string; available: boolean }
 	| { command: InstanceCommand; instanceName: string }
 	| { command: 'clearPendingLaunch'; instanceName?: string }
 	| { command: 'removeMount'; instanceName: string; guestPath: string }
@@ -65,6 +68,9 @@ export type WebviewCommand = WebviewMessage['command'];
 
 /** Sent by the extension, handled in webview/App.tsx. */
 export type ExtensionMessage =
+	| { command: 'suspendActionResult'; instanceName: string; success: boolean }
+	| { command: 'zones'; result: ZonesResult }
+	| { command: 'zoneActionResult'; zoneName: string; success: boolean; cancelled?: boolean; error?: string }
 	| { command: 'updateInstances'; instanceLists: InstanceLists }
 	| { command: 'instanceInfo'; info: MultipassInstanceInfo }
 	| { command: 'multipassCapabilities'; capabilities: MultipassCapabilities }

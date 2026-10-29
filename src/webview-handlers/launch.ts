@@ -45,7 +45,7 @@ export async function handleLaunchInlineInstance(msg: { config: InlineLaunchConf
 		vscode.window.showErrorMessage('Failed to fetch available Multipass images.');
 		return;
 	}
-	const capabilities = capabilitiesFromImages(imagesResult);
+	const capabilities = { ...ctx.multipassCapabilities, ...capabilitiesFromImages(imagesResult) };
 	ctx.setCachedImages(imagesResult);
 	ctx.setMultipassCapabilities(capabilities);
 	ctx.postMessage({ command: 'multipassCapabilities', capabilities });
@@ -189,7 +189,7 @@ export async function handleGetInlineImageOptions(msg: { distro?: string }, ctx:
 		imagesResult = await findImages();
 		if (imagesResult) {
 			ctx.setCachedImages(imagesResult);
-			const capabilities = capabilitiesFromImages(imagesResult);
+			const capabilities = { ...ctx.multipassCapabilities, ...capabilitiesFromImages(imagesResult) };
 			ctx.setMultipassCapabilities(capabilities);
 			ctx.postMessage({ command: 'multipassCapabilities', capabilities });
 		}

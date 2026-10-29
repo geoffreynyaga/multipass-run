@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import type { MultipassInstanceInfo } from '../commands/getInstanceInfo';
 import type { InstanceLists } from '../commands/listInstances';
 import type { MultipassSnapshot } from '../commands/listSnapshots';
+import type { ZonesResult } from '../commands/zones';
+import { ZONE_REFRESH_INTERVAL_MS } from '../shared/constants';
 import type { ExtensionMessage, InlineLaunchConfig, WebviewMessage } from '../shared/messages';
 import type { InstallPlan } from '../utils/installPackageManager';
 import type { MultipassImageOption } from '../utils/multipassImages';
@@ -10,6 +12,7 @@ import type { MultipassCapabilities } from '../utils/multipassVersion';
 import { DaemonErrorScreen } from './components/DaemonErrorScreen';
 import { InstallMissingScreen } from './components/InstallMissingScreen';
 import InstanceList from './components/InstanceList';
+import { ZonesView } from './components/ZonesView';
 
 declare const acquireVsCodeApi: () => any;
 declare global {
@@ -46,6 +49,20 @@ const App: React.FC = () => {
 	const [inlineImageOptions, setInlineImageOptions] = useState<InlineImageOption[]>([]);
 	const [isLoadingInlineImages, setIsLoadingInlineImages] = useState(false);
 
+	const [activeTab, setActiveTab] = useState<'vms' | 'zones'>('vms');
+	const [zones, setZones] = useState<ZonesResult | null>(null);
+	const [zonesRefreshing, setZonesRefreshing] = useState(false);
+	const [pendingZone, setPendingZone] = useState<string | null>(null);
+	const [zoneActionError, setZoneActionError] = useState<string | null>(null);
+	const [selectedZone, setSelectedZone] = useState<string | null>(null);
+	const zoneRequestPending = React.useRef(false);
+	const requestZones = React.useCallback(() => {
+		if (zoneRequestPending.current) { return; }
+		zoneRequestPending.current = true;
+		setZonesRefreshing(true);
+		vscode.postMessage({ command: 'getZones' } satisfies WebviewMessage);
+	}, []);
+
 	const isMultipassNotInstalled = instanceLists.error?.type === 'not-installed';
 	const isDaemonNotRunning = instanceLists.error?.type === 'daemon-not-running';
 
@@ -54,6 +71,19 @@ const App: React.FC = () => {
 			const message = event.data as ExtensionMessage;
 
 			switch (message.command) {
+				case 'zones':
+					zoneRequestPending.current = false;
+					setZonesRefreshing(false);
+					setZones(message.result);
+					break;
+				case 'zoneActionResult':
+					setPendingZone(null);
+					setZoneActionError(message.error || null);
+					if (message.success) {
+						setInstanceInfo(null);
+						setSnapshotsByInstance({});
+					}
+					break;
 				case 'updateInstances':
 					setInstanceLists(message.instanceLists);
 					break;
@@ -87,6 +117,13 @@ const App: React.FC = () => {
 		return () => window.removeEventListener('message', handleMessage);
 	}, []);
 
+	useEffect(() => {
+		if (activeTab !== 'zones') { return; }
+		requestZones();
+		const timer = window.setInterval(requestZones, ZONE_REFRESH_INTERVAL_MS);
+		return () => window.clearInterval(timer);
+	}, [activeTab, requestZones]);
+
 	const post = (message: WebviewMessage) => vscode.postMessage(message);
 
 	const handleCreateInstance = () => post({ command: 'launchInstance' });
@@ -113,7 +150,9 @@ const App: React.FC = () => {
 	const handleAddMount = (name: string) => post({ command: 'addMount', instanceName: name });
 	const handleRemoveMount = (name: string, guestPath: string) =>
 		post({ command: 'removeMount', instanceName: name, guestPath });
-	const handleGetSnapshots = (name: string) => post({ command: 'getSnapshots', instanceName: name });
+	const handleGetSnapshots = React.useCallback((name: string) => {
+		vscode.postMessage({ command: 'getSnapshots', instanceName: name } satisfies WebviewMessage);
+	}, []);
 	const handleTakeSnapshot = (name: string, snapshotName?: string, comment?: string) =>
 		post({ command: 'takeSnapshot', instanceName: name, name: snapshotName, comment });
 	const handleRestoreSnapshot = (name: string, snapshotName: string) =>
@@ -147,47 +186,74 @@ const App: React.FC = () => {
 	}
 
 	return (
-		<InstanceList
-			instanceLists={instanceLists}
-			instanceInfo={instanceInfo}
-			snapshotsByInstance={snapshotsByInstance}
-			hostPlatform={window.hostPlatform || ''}
-			onOpenFullDiskAccessSettings={handleOpenFullDiskAccessSettings}
-			onAddMount={handleAddMount}
-			onRemoveMount={handleRemoveMount}
-			onGetSnapshots={handleGetSnapshots}
-			onTakeSnapshot={handleTakeSnapshot}
-			onRestoreSnapshot={handleRestoreSnapshot}
-			onDeleteSnapshot={handleDeleteSnapshot}
-			ubuntuIconUri={window.ubuntuIconUri || ''}
-			ubuntuDarkIconUri={window.ubuntuDarkIconUri || ''}
-			fedoraIconUri={window.fedoraIconUri || ''}
-			fedoraDarkIconUri={window.fedoraDarkIconUri || ''}
-			debianIconUri={window.debianIconUri || ''}
-			debianDarkIconUri={window.debianDarkIconUri || ''}
-			onCreateInstance={handleCreateInstance}
-			onCreateCustomInstance={handleCreateCustomInstance}
-			onCreateCloudInitInstance={handleCreateCloudInitInstance}
-			onCreateProfileInstance={handleCreateProfileInstance}
-			onLaunchFromInlineForm={handleLaunchFromInlineForm}
-			inlineImageOptions={inlineImageOptions}
-			isLoadingInlineImages={isLoadingInlineImages}
-			onRequestInlineImages={handleRequestInlineImages}
-			multipassCapabilities={multipassCapabilities}
-			onStartInstance={handleStartInstance}
-			onStopInstance={handleStopInstance}
-			onSuspendInstance={handleSuspendInstance}
-			onShellInstance={handleShellInstance}
-			onSetupSSHInstance={handleSetupSSHInstance}
-			onStartAndShellInstance={handleStartAndShellInstance}
-			onRecoverAndShellInstance={handleRecoverAndShellInstance}
-			onDeleteInstance={handleDeleteInstance}
-			onRecoverInstance={handleRecoverInstance}
-			onPurgeInstance={handlePurgeInstance}
-			onGetInstanceInfo={handleGetInstanceInfo}
-			onRefreshList={handleRefreshList}
-			onClearPendingLaunch={handleClearPendingLaunch}
-		/>
+		<>
+			<div className="workspace-tabs" role="tablist" aria-label="Multipass views">
+				{(['vms', 'zones'] as const).map(tab => (
+					<button key={tab} type="button" role="tab" id={`tab-${tab}`} aria-controls={`panel-${tab}`}
+						aria-selected={activeTab === tab} tabIndex={activeTab === tab ? 0 : -1}
+						onClick={() => setActiveTab(tab)} onKeyDown={event => {
+							if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { return; }
+							event.preventDefault();
+							const next = event.key === 'Home' ? 'vms' : event.key === 'End' ? 'zones' : tab === 'vms' ? 'zones' : 'vms';
+							setActiveTab(next);
+							document.getElementById(`tab-${next}`)?.focus();
+						}}>{tab === 'vms' ? 'VMs' : 'Zones'}</button>
+				))}
+			</div>
+			<div role="tabpanel" id="panel-zones" aria-labelledby="tab-zones" hidden={activeTab !== 'zones'}>
+				<ZonesView result={zones} instances={[...instanceLists.active, ...instanceLists.deleted]}
+					refreshing={zonesRefreshing} pendingZone={pendingZone} actionError={zoneActionError} selectedZone={activeTab === 'zones' ? selectedZone : null}
+					onRefresh={requestZones} onChangeAvailability={(zoneName, available) => {
+						setPendingZone(zoneName);
+						setZoneActionError(null);
+						post({ command: 'setZoneAvailability', zoneName, available });
+					}} />
+			</div>
+			<div role="tabpanel" id="panel-vms" aria-labelledby="tab-vms" hidden={activeTab !== 'vms'}>
+				<InstanceList
+					onViewZone={name => { setSelectedZone(name); setActiveTab('zones'); }}
+					instanceLists={instanceLists}
+					instanceInfo={instanceInfo}
+					snapshotsByInstance={snapshotsByInstance}
+					hostPlatform={window.hostPlatform || ''}
+					onOpenFullDiskAccessSettings={handleOpenFullDiskAccessSettings}
+					onAddMount={handleAddMount}
+					onRemoveMount={handleRemoveMount}
+					onGetSnapshots={handleGetSnapshots}
+					onTakeSnapshot={handleTakeSnapshot}
+					onRestoreSnapshot={handleRestoreSnapshot}
+					onDeleteSnapshot={handleDeleteSnapshot}
+					ubuntuIconUri={window.ubuntuIconUri || ''}
+					ubuntuDarkIconUri={window.ubuntuDarkIconUri || ''}
+					fedoraIconUri={window.fedoraIconUri || ''}
+					fedoraDarkIconUri={window.fedoraDarkIconUri || ''}
+					debianIconUri={window.debianIconUri || ''}
+					debianDarkIconUri={window.debianDarkIconUri || ''}
+					onCreateInstance={handleCreateInstance}
+					onCreateCustomInstance={handleCreateCustomInstance}
+					onCreateCloudInitInstance={handleCreateCloudInitInstance}
+					onCreateProfileInstance={handleCreateProfileInstance}
+					onLaunchFromInlineForm={handleLaunchFromInlineForm}
+					inlineImageOptions={inlineImageOptions}
+					isLoadingInlineImages={isLoadingInlineImages}
+					onRequestInlineImages={handleRequestInlineImages}
+					multipassCapabilities={multipassCapabilities}
+					onStartInstance={handleStartInstance}
+					onStopInstance={handleStopInstance}
+					onSuspendInstance={handleSuspendInstance}
+					onShellInstance={handleShellInstance}
+					onSetupSSHInstance={handleSetupSSHInstance}
+					onStartAndShellInstance={handleStartAndShellInstance}
+					onRecoverAndShellInstance={handleRecoverAndShellInstance}
+					onDeleteInstance={handleDeleteInstance}
+					onRecoverInstance={handleRecoverInstance}
+					onPurgeInstance={handlePurgeInstance}
+					onGetInstanceInfo={handleGetInstanceInfo}
+					onRefreshList={handleRefreshList}
+					onClearPendingLaunch={handleClearPendingLaunch}
+				/>
+			</div>
+		</>
 	);
 };
 

@@ -114,20 +114,20 @@ describe('runMultipassCommand', () => {
 					return {} as unknown;
 				});
 
-			const result = await runMultipassCommand(['list', '--format', 'json']);
+			const result = await runMultipassCommand(['list', '--format', 'json'], { timeout: 10000 });
 
 			expect(execFileMock).toHaveBeenNthCalledWith(
 				1,
 				'/snap/bin/multipass',
 				['list', '--format', 'json'],
-				expect.objectContaining({ env: expect.any(Object) }),
+				expect.objectContaining({ env: expect.any(Object), timeout: 10000 }),
 				expect.any(Function)
 			);
 			expect(execFileMock).toHaveBeenNthCalledWith(
 				2,
 				'script',
 				['-q', '-c', "'/snap/bin/multipass' 'list' '--format' 'json'", '/dev/null'],
-				expect.objectContaining({ env: expect.any(Object) }),
+				expect.objectContaining({ env: expect.any(Object), timeout: 10000 }),
 				expect.any(Function)
 			);
 			expect(result.stdout).toBe('{"list":[]}');
